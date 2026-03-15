@@ -1,0 +1,37 @@
+{
+  "name": "NOVA — Your Universe of Sound",
+  "short_name": "NOVA",
+  "description": "Stream all of YouTube as music. No ads. 8D Audio. Unlimited.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050510",
+  "theme_color": "#00d4ff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["music", "entertainment"],
+  "shortcuts": [
+    {
+      "name": "Search Music",
+      "url": "/search",
+      "description": "Search for songs and videos"
+    },
+    {
+      "name": "My Library",
+      "url": "/library",
+      "description": "View your playlists"
+    }
+  ]
+}

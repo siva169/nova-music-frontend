@@ -6,12 +6,34 @@
     <meta name="theme-color" content="#050510" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="NOVA" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="description" content="NOVA — Your Universe of Sound. Stream all of YouTube as music, no ads, 8D audio, unlimited playlists." />
+    <meta name="msapplication-TileColor" content="#050510" />
     <title>NOVA — Your Universe of Sound</title>
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;400;500;600;700;800;900&family=Bebas+Neue&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet" />
+    <style>
+      /* Prevent flash of white on load */
+      body { background: #050510; margin: 0; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Register Service Worker for background play
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then(reg => {
+            console.log('SW registered for background play');
+          }).catch(err => {
+            console.log('SW registration failed:', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>

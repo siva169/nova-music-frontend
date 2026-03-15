@@ -81,7 +81,6 @@ async function downloadViaCobalt(videoId, format, quality, title, toast) {
 
 // ── Download Panel ────────────────────────────────────────────────────
 function DownloadPanel({ track, durationMins }) {
-  const [downloading, setDownloading] = useState(null);
   const [done, setDone] = useState(null);
   const { toast } = useApp();
 
@@ -106,16 +105,15 @@ function DownloadPanel({ track, durationMins }) {
     }
   ];
 
-  async function handleDownload(format, quality) {
+  function handleDownload(format, quality) {
     const key = `${format}-${quality}`;
-    setDownloading(key);
-    try {
-      await downloadViaCobalt(track.id, format, quality, track.title, toast);
-      setDone(key);
-      setTimeout(() => setDone(null), 4000);
-    } finally {
-      setDownloading(null);
-    }
+    const videoUrl = `https://www.youtube.com/watch?v=${track.id}`;
+    const isAudio = ['mp3', 'wav', 'ogg'].includes(format);
+    // Open cobalt.tools - best free downloader, no ads, works in browser
+    window.open(`https://cobalt.tools/?u=${encodeURIComponent(videoUrl)}`, '_blank');
+    setDone(key);
+    toast(`Opening download for: ${track.title} — select ${format.toUpperCase()} in the page`);
+    setTimeout(() => setDone(null), 5000);
   }
 
   return (
@@ -128,27 +126,24 @@ function DownloadPanel({ track, durationMins }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {group.options.map(({ format, quality, label, desc }) => {
               const key = `${format}-${quality}`;
-              const isDown = downloading === key;
+              const isDown = false;
               const isDone = done === key;
               const size = getApproxSize(durationMins, format, quality);
               return (
                 <button key={key} onClick={() => handleDownload(format, quality)}
-                  disabled={!!downloading}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '12px 16px', borderRadius: 12, textAlign: 'left',
-                    background: isDone ? 'rgba(0,255,136,0.08)' : isDown ? 'var(--accent-dim)' : 'var(--bg-card)',
-                    border: `1px solid ${isDone ? 'rgba(0,255,136,0.3)' : isDown ? 'var(--border-accent)' : 'var(--border)'}`,
-                    cursor: downloading ? 'not-allowed' : 'pointer',
-                    opacity: downloading && !isDown ? 0.5 : 1,
-                    transition: 'all 0.2s'
+                    background: isDone ? 'rgba(0,255,136,0.08)' : 'var(--bg-card)',
+                    border: `1px solid ${isDone ? 'rgba(0,255,136,0.3)' : 'var(--border)'}`,
+                    cursor: 'pointer', transition: 'all 0.2s'
                   }}
-                  onMouseOver={e => { if (!downloading) { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderColor = 'var(--border-accent)'; }}}
-                  onMouseOut={e => { if (!downloading) { e.currentTarget.style.background = isDone ? 'rgba(0,255,136,0.08)' : 'var(--bg-card)'; e.currentTarget.style.borderColor = isDone ? 'rgba(0,255,136,0.3)' : 'var(--border)'; }}}
+                  onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderColor = 'var(--border-accent)'; }}
+                  onMouseOut={e => { e.currentTarget.style.background = isDone ? 'rgba(0,255,136,0.08)' : 'var(--bg-card)'; e.currentTarget.style.borderColor = isDone ? 'rgba(0,255,136,0.3)' : 'var(--border)'; }}
                 >
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2, color: isDone ? '#00ff88' : isDown ? 'var(--accent)' : 'var(--text-primary)' }}>
-                      {isDone ? '✓ Download started!' : isDown ? 'Preparing...' : label}
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2, color: isDone ? '#00ff88' : 'var(--text-primary)' }}>
+                      {isDone ? '✓ Opening download!' : label}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{desc}</div>
                   </div>
