@@ -20,7 +20,7 @@ export function AppProvider({ children }) {
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const [isShuffled, setIsShuffled] = useState(false);
-  const [repeatMode, setRepeatMode] = useState('none'); // none | one | all
+  const [repeatMode, setRepeatMode] = useState('none');
   const [is8D, setIs8D] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
 
@@ -40,7 +40,7 @@ export function AppProvider({ children }) {
   const panAnimRef = useRef(null);
   const sourceRef = useRef(null);
   const gainRef = useRef(null);
-  const shuffleQueueRef = useRef([]);
+  const keepAliveRef = useRef(null);
 
   // ── Toast System ───────────────────────────────────────────────────────
   const toast = useCallback((msg, type = 'info') => {
@@ -69,6 +69,44 @@ export function AppProvider({ children }) {
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-accent', accent);
   }, [theme, accent]);
+
+  // ── Background Play Keep-Alive ─────────────────────────────────────────
+  useEffect(() => {
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    // Keep service worker alive when playing
+    if (isPlaying) {
+      keepAliveRef.current = setInterval(() => {
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'KEEP_ALIVE' });
+        }
+      }, 20000);
+    } else {
+      clearInterval(keepAliveRef.current);
+    }
+    return () => clearInterval(keepAliveRef.current);
+  }, [isPlaying]);
+
+  // ── Wake Lock API - prevents screen/CPU sleep during playback ──────────
+  const wakeLockRef = useRef(null);
+  useEffect(() => {
+    async function manageWakeLock() {
+      if (isPlaying && 'wakeLock' in navigator) {
+        try {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+        } catch {}
+      } else if (wakeLockRef.current) {
+        try { await wakeLockRef.current.release(); } catch {}
+        wakeLockRef.current = null;
+      }
+    }
+    manageWakeLock();
+  }, [isPlaying]);
 
   // ── Playlists ──────────────────────────────────────────────────────────
   const fetchPlaylists = useCallback(async () => {
@@ -101,7 +139,6 @@ export function AppProvider({ children }) {
       pannerRef.current.disconnect();
       cancelAnimationFrame(panAnimRef.current);
     }
-    // Create panner with binaural effect
     const panner = ctx.createPanner();
     panner.panningModel = 'HRTF';
     panner.distanceModel = 'inverse';
@@ -122,7 +159,7 @@ export function AppProvider({ children }) {
 
     let angle = 0;
     const RADIUS = 5;
-    const SPEED = 0.5; // rotations per second
+    const SPEED = 0.5;
 
     function animatePan() {
       angle += (SPEED * Math.PI * 2) / 60;
@@ -142,20 +179,53 @@ export function AppProvider({ children }) {
     if (audioCtxRef.current) { audioCtxRef.current.close(); audioCtxRef.current = null; }
   }, []);
 
-  // ── Media Session API ──────────────────────────────────────────────────
+  // ── Media Session API (Background play controls) ───────────────────────
   useEffect(() => {
     if (!currentTrack || !('mediaSession' in navigator)) return;
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentTrack.title,
       artist: currentTrack.channel,
-      album: 'NOVA',
-      artwork: [{ src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' }]
+      album: 'NOVA — Your Universe of Sound',
+      artwork: [
+        { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
+        { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
+      ]
     });
-    navigator.mediaSession.setActionHandler('play', () => setIsPlaying(true));
-    navigator.mediaSession.setActionHandler('pause', () => setIsPlaying(false));
+    navigator.mediaSession.setActionHandler('play', () => {
+      setIsPlaying(true);
+      try { playerRef.current?.playVideo?.(); } catch {}
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      setIsPlaying(false);
+      try { playerRef.current?.pauseVideo?.(); } catch {}
+    });
     navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
     navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (details.seekTime && playerRef.current) {
+        try { playerRef.current.seekTo(details.seekTime, true); } catch {}
+        setProgress(details.seekTime);
+      }
+    });
   }, [currentTrack]);
+
+  // Update media session playback state
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+  }, [isPlaying]);
+
+  // Update media session position
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !duration) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: duration,
+        playbackRate: 1,
+        position: Math.min(progress, duration),
+      });
+    } catch {}
+  }, [progress, duration]);
 
   // ── Playback Controls ──────────────────────────────────────────────────
   const playTrack = useCallback((track, newQueue = null, startIndex = 0) => {
@@ -259,9 +329,7 @@ export function AppProvider({ children }) {
   }, [toast]);
 
   const value = {
-    // Auth
     user, setUser, authLoading, logout,
-    // Player
     currentTrack, queue, queueIndex, isPlaying, setIsPlaying,
     progress, setProgress, duration, setDuration,
     volume, setVolume, isMuted, setIsMuted,
@@ -269,15 +337,12 @@ export function AppProvider({ children }) {
     is8D, setIs8D, start8D, stop8D,
     playerRef, playerReady, setPlayerReady,
     playTrack, nextTrack, prevTrack, onTrackEnd,
-    // Data
     playlists, likedTracks, fetchPlaylists, fetchLiked,
     toggleLike, addToPlaylist, createPlaylist,
-    // UI
     theme, accent, saveSettings,
     sidebarOpen, setSidebarOpen,
     toasts, toast,
     searchQuery, setSearchQuery,
-    // API
     API
   };
 
