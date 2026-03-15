@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const AppContext = createContext(null);
 
-const API = axios.create({ baseURL: 'http://localhost:3001', withCredentials: true });
+const API = axios.create({ baseURL: 'https://nova-music-backend-production.up.railway.app', withCredentials: true });
 
 export function AppProvider({ children }) {
   // ── Auth ───────────────────────────────────────────────────────────────
