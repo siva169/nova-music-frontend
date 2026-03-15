@@ -1,31 +1,34 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useApp } from '../AppContext';
 
 const NAV = [
-  { path: '/home', icon: '⌂', label: 'Home' },
-  { path: '/search', icon: '⌕', label: 'Search' },
+  { path: '/home',    icon: '⌂', label: 'Home' },
+  { path: '/search',  icon: '⌕', label: 'Search' },
   { path: '/library', icon: '⊞', label: 'Library' },
-  { path: '/liked', icon: '♥', label: 'Liked' },
+  { path: '/liked',   icon: '♥', label: 'Liked' },
 ];
 
 export default function MobileNav() {
   return (
-    <nav style={{
-      position: 'fixed', bottom: 0, left: 0, right: 0,
+    <nav className="mobile-nav" style={{
+      display: 'none', // shown via CSS on mobile
       background: 'var(--bg-secondary)',
       borderTop: '1px solid var(--border)',
-      padding: '8px 0',
+      padding: '8px 0 env(safe-area-inset-bottom, 8px)',
       zIndex: 150,
-      display: 'none',
-    }} className="mobile-nav">
+      justifyContent: 'space-around',
+      alignItems: 'center',
+    }}>
       {NAV.map(({ path, icon, label }) => (
         <NavLink key={path} to={path} style={({ isActive }) => ({
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-          padding: '6px 0', color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-          fontSize: 20, textDecoration: 'none', flex: 1
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          gap: 3, padding: '4px 16px', textDecoration: 'none',
+          color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+          transition: 'var(--transition)'
         })}>
-          {icon}
-          <span style={{ fontSize: 9, letterSpacing: 0.5, fontWeight: 600 }}>{label}</span>
+          <span style={{ fontSize: 22 }}>{icon}</span>
+          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.5 }}>{label}</span>
         </NavLink>
       ))}
     </nav>

@@ -6,9 +6,10 @@ import './styles/global.css';
 import Sidebar from './components/Sidebar';
 import PlayerBar from './components/PlayerBar';
 import MobileNav from './components/MobileNav';
+import MobileHeader from './components/MobileHeader';
 import ToastContainer from './components/Toast';
-import { NovaLogoFull } from './components/NovaLogo';
 import AudioPlayer from './components/AudioPlayer';
+import { NovaLogoFull } from './components/NovaLogo';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
@@ -16,31 +17,17 @@ import { LibraryPage, LikedPage, PlaylistPage, SharedPage, SettingsPage } from '
 
 function LoadingScreen() {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '100vh', background: '#050510', flexDirection: 'column', gap: 0
-    }}>
-      <NovaLogoFull size={160} />
-      <div style={{
-        fontFamily: "'Bebas Neue', sans-serif", fontSize: 48,
-        letterSpacing: 12, marginTop: -8,
-        background: 'linear-gradient(135deg, #ffffff 0%, #00d4ff 50%, #bf5af2 100%)',
-        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text'
-      }}>NOVA</div>
-      <div style={{ fontSize: 11, color: 'rgba(180,220,255,0.35)', letterSpacing: 4, marginTop: 8, textTransform: 'uppercase' }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100dvh', background:'#050510', flexDirection:'column', gap:0 }}>
+      <NovaLogoFull size={150} />
+      <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:44, letterSpacing:12, marginTop:-8,
+        background:'linear-gradient(135deg,#ffffff 0%,#00d4ff 50%,#bf5af2 100%)',
+        WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>NOVA</div>
+      <div style={{ fontSize:11, color:'rgba(180,220,255,0.35)', letterSpacing:4, marginTop:8, textTransform:'uppercase' }}>
         Loading your universe...
       </div>
-      {/* Loading bar */}
-      <div style={{ width: 120, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 99, marginTop: 24, overflow: 'hidden' }}>
-        <div style={{ height: '100%', background: 'linear-gradient(90deg, #00d4ff, #bf5af2)', borderRadius: 99, animation: 'loadBar 1.5s ease-in-out infinite' }} />
+      <div style={{ width:120, height:2, background:'rgba(255,255,255,0.08)', borderRadius:99, marginTop:24, overflow:'hidden' }}>
+        <div style={{ height:'100%', background:'linear-gradient(90deg,#00d4ff,#bf5af2)', borderRadius:99, animation:'loadBar 1.5s ease-in-out infinite' }} />
       </div>
-      <style>{`
-        @keyframes loadBar {
-          0% { width: 0%; margin-left: 0%; }
-          50% { width: 80%; margin-left: 10%; }
-          100% { width: 0%; margin-left: 100%; }
-        }
-      `}</style>
     </div>
   );
 }
@@ -60,10 +47,18 @@ function AppShell() {
   return (
     <div className="app-layout">
       <Sidebar />
+
+      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div onClick={() => setSidebarOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 199 }} />
+        <div onClick={() => setSidebarOpen(false)} style={{
+          position:'fixed', inset:0, background:'rgba(0,0,0,0.7)',
+          zIndex:299, backdropFilter:'blur(4px)'
+        }} />
       )}
+
+      {/* Mobile header */}
+      <MobileHeader />
+
       <div className="main-content" id="main-scroll">
         <Routes>
           <Route path="/" element={<Navigate to="/home" />} />
@@ -77,9 +72,10 @@ function AppShell() {
           <Route path="*" element={<Navigate to="/home" />} />
         </Routes>
       </div>
+
       {currentTrack && <PlayerBar />}
-      <AudioPlayer />
       <MobileNav />
+      <AudioPlayer />
       <ToastContainer />
     </div>
   );

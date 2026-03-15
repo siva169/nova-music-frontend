@@ -1,125 +1,127 @@
-// ── NOVA Audio Player ─────────────────────────────────────────────────
-// Uses YouTube iframe for video + a silent HTML5 audio element trick
-// to register with the browser's media session (lock screen controls)
-
 import { useEffect, useRef } from 'react';
 import { useApp } from '../AppContext';
-
-// Silent audio file (1 second of silence) as base64
-// This keeps the audio session alive and registers media session
-const SILENT_AUDIO = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV6urq6urq6urq6urq6urq6urq6urq6urq6v////////////////////////////////8AAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAJAAAAAAAAAAAASDs90hvAAAAAAAAAAAAAAAAAAAA//OEZAAABpABpAAAAGkAKgAAAAATEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
 
 export default function AudioPlayer() {
   const {
     currentTrack, isPlaying, setIsPlaying,
     nextTrack, prevTrack, playerRef,
-    progress, duration
+    progress, setProgress, duration, setDuration
   } = useApp();
 
   const audioRef = useRef(null);
-  const intervalRef = useRef(null);
+  const keepAliveRef = useRef(null);
 
-  // Create hidden audio element on mount
+  // Create silent audio element on mount
   useEffect(() => {
-    if (!audioRef.current) {
-      const audio = new Audio(SILENT_AUDIO);
-      audio.loop = true;
-      audio.volume = 0.001; // nearly silent
-      audioRef.current = audio;
+    // Create a proper audio context with silence
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    const ctx = new AudioContext();
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = 0.00001; // Nearly silent
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    oscillator.start();
+
+    audioRef.current = { ctx, oscillator, gainNode };
+
+    // Keep service worker alive with periodic pings
+    if ('serviceWorker' in navigator) {
+      keepAliveRef.current = setInterval(() => {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.active?.postMessage({ type: 'KEEP_ALIVE' });
+        });
+      }, 20000); // Ping every 20 seconds
     }
+
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+      oscillator.stop();
+      ctx.close();
+      clearInterval(keepAliveRef.current);
     };
   }, []);
 
-  // When playing state changes — start/stop silent audio to keep session alive
+  // Resume audio context on play (required by browsers)
   useEffect(() => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.play().catch(() => {});
-    } else {
-      audioRef.current.pause();
+    if (isPlaying && audioRef.current?.ctx?.state === 'suspended') {
+      audioRef.current.ctx.resume();
     }
   }, [isPlaying]);
 
-  // Update media session whenever track changes
+  // Media Session API - Lock Screen Controls
   useEffect(() => {
     if (!currentTrack || !('mediaSession' in navigator)) return;
 
-    // Set metadata
+    // Set lock screen metadata
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentTrack.title,
       artist: currentTrack.channel,
       album: 'NOVA Music',
       artwork: [
-        { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
+        { src: currentTrack.thumbnail, sizes: '96x96',   type: 'image/jpeg' },
         { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
-        { src: currentTrack.thumbnail, sizes: '128x128', type: 'image/jpeg' },
+        { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
       ]
     });
 
-    // Action handlers
-    navigator.mediaSession.setActionHandler('play', () => {
-      setIsPlaying(true);
-      playerRef.current?.playVideo?.();
-      audioRef.current?.play().catch(() => {});
-      navigator.mediaSession.playbackState = 'playing';
+    // Lock screen button handlers
+    const handlers = {
+      'play': () => {
+        setIsPlaying(true);
+        playerRef.current?.playVideo?.();
+        if (audioRef.current?.ctx?.state === 'suspended') {
+          audioRef.current.ctx.resume();
+        }
+        navigator.mediaSession.playbackState = 'playing';
+      },
+      'pause': () => {
+        setIsPlaying(false);
+        playerRef.current?.pauseVideo?.();
+        navigator.mediaSession.playbackState = 'paused';
+      },
+      'nexttrack': () => nextTrack(),
+      'previoustrack': () => prevTrack(),
+      'seekbackward': (d) => {
+        const t = Math.max(0, (playerRef.current?.getCurrentTime?.() || 0) - (d.seekOffset || 10));
+        playerRef.current?.seekTo?.(t, true);
+        setProgress(t);
+      },
+      'seekforward': (d) => {
+        const t = Math.min(duration, (playerRef.current?.getCurrentTime?.() || 0) + (d.seekOffset || 10));
+        playerRef.current?.seekTo?.(t, true);
+        setProgress(t);
+      },
+      'stop': () => {
+        setIsPlaying(false);
+        playerRef.current?.pauseVideo?.();
+      }
+    };
+
+    Object.entries(handlers).forEach(([action, handler]) => {
+      try { navigator.mediaSession.setActionHandler(action, handler); } catch {}
     });
 
-    navigator.mediaSession.setActionHandler('pause', () => {
-      setIsPlaying(false);
-      playerRef.current?.pauseVideo?.();
-      audioRef.current?.pause();
-      navigator.mediaSession.playbackState = 'paused';
-    });
+  }, [currentTrack, duration]);
 
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      nextTrack();
-    });
-
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      prevTrack();
-    });
-
-    navigator.mediaSession.setActionHandler('stop', () => {
-      setIsPlaying(false);
-      playerRef.current?.pauseVideo?.();
-    });
-
-    navigator.mediaSession.setActionHandler('seekbackward', (d) => {
-      const skip = d.seekOffset || 10;
-      const newTime = Math.max(0, (playerRef.current?.getCurrentTime?.() || 0) - skip);
-      playerRef.current?.seekTo?.(newTime, true);
-    });
-
-    navigator.mediaSession.setActionHandler('seekforward', (d) => {
-      const skip = d.seekOffset || 10;
-      const newTime = Math.min(duration, (playerRef.current?.getCurrentTime?.() || 0) + skip);
-      playerRef.current?.seekTo?.(newTime, true);
-    });
-
-  }, [currentTrack]);
-
-  // Keep playback state in sync
+  // Sync playback state with lock screen
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
   }, [isPlaying]);
 
-  // Update position state for lock screen progress bar
+  // Update lock screen progress bar
   useEffect(() => {
-    if (!('mediaSession' in navigator) || !duration) return;
+    if (!('mediaSession' in navigator) || !duration || duration <= 0) return;
     try {
       navigator.mediaSession.setPositionState({
         duration: duration,
         playbackRate: 1,
-        position: Math.min(progress, duration)
+        position: Math.min(Math.max(0, progress), duration)
       });
     } catch {}
   }, [progress, duration]);
 
-  return null; // This component renders nothing visible
+  return null;
 }
