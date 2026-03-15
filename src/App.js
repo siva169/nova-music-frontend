@@ -8,6 +8,7 @@ import PlayerBar from './components/PlayerBar';
 import MobileNav from './components/MobileNav';
 import ToastContainer from './components/Toast';
 import { NovaLogoFull } from './components/NovaLogo';
+import AudioPlayer from './components/AudioPlayer';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
@@ -77,6 +78,7 @@ function AppShell() {
         </Routes>
       </div>
       {currentTrack && <PlayerBar />}
+      <AudioPlayer />
       <MobileNav />
       <ToastContainer />
     </div>
