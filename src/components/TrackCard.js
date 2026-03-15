@@ -115,20 +115,7 @@ export default function TrackCard({ track, queue = [], index = 0, compact = fals
             {track.title}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>{track.channel}</div>
-          {/* Download button */}
-          <button onClick={e => { e.stopPropagation(); setShowInfo(true); }}
-            style={{
-              width: '100%', padding: '7px', borderRadius: 8,
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              color: 'var(--text-secondary)', fontSize: 11, fontWeight: 600,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              transition: 'var(--transition)', cursor: 'pointer'
-            }}
-            onMouseOver={e => { e.currentTarget.style.background = 'var(--accent-dim)'; e.currentTarget.style.borderColor = 'var(--border-accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
-            onMouseOut={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-          >
-            <span>⬇</span> Download / Info
-          </button>
+
         </div>
       </div>
       {showMenu && (

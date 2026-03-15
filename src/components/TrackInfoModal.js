@@ -26,69 +26,6 @@ function getDurMins(iso) {
   return parseInt(m[1]||0)*60 + parseInt(m[2]||0) + parseInt(m[3]||0)/60;
 }
 
-// ── Download Panel ────────────────────────────────────────────────────
-function DownloadPanel({ track, details }) {
-  const { toast } = useApp();
-  const dur = getDurMins(details?.duration);
-  const ytUrl = `https://www.youtube.com/watch?v=${track.id}`;
-  const enc = encodeURIComponent(ytUrl);
-
-  const SERVICES = [
-    { name: 'SnapSave', icon: '⚡', desc: 'Most reliable', color: '#00d4ff', url: `https://snapsave.app/result?url=${enc}` },
-    { name: 'SSYouTube', icon: '🎵', desc: 'Direct MP3', color: '#00ff88', url: `https://www.ssyoutube.com/watch?v=${track.id}` },
-    { name: 'SaveFrom', icon: '📥', desc: 'All formats', color: '#bf5af2', url: `https://en.savefrom.net/1-youtube-video-downloader/?url=${ytUrl}` },
-    { name: 'Y2Mate', icon: '🎬', desc: 'Video & audio', color: '#ff9f0a', url: `https://www.y2mate.com/youtube/${track.id}` },
-  ];
-
-  const FORMATS = [
-    { label: `🎵 MP3 Best Quality (~${Math.round(dur*2.4)} MB)`, url: `https://www.ssyoutube.com/watch?v=${track.id}` },
-    { label: `🎵 MP3 Standard (~${Math.round(dur*1.44)} MB)`, url: `https://snapsave.app/result?url=${enc}` },
-    { label: `🎬 MP4 1080p (~${Math.round(dur*150)} MB)`, url: `https://snapsave.app/result?url=${enc}` },
-    { label: `🎬 MP4 720p (~${Math.round(dur*80)} MB)`, url: `https://en.savefrom.net/1-youtube-video-downloader/?url=${ytUrl}` },
-    { label: `🎬 MP4 480p (~${Math.round(dur*40)} MB)`, url: `https://www.y2mate.com/youtube/${track.id}` },
-  ];
-
-  return (
-    <div>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>Quick Download</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {SERVICES.map(({ name, icon, desc, color, url }) => (
-            <button key={name} onClick={() => { window.open(url, '_blank'); toast(`Opening ${name}...`); }}
-              style={{ padding: '12px', borderRadius: 12, textAlign: 'left', cursor: 'pointer', background: `${color}12`, border: `1px solid ${color}33`, transition: 'all 0.2s' }}
-              onMouseOver={e => { e.currentTarget.style.background = `${color}22`; e.currentTarget.style.borderColor = `${color}66`; }}
-              onMouseOut={e => { e.currentTarget.style.background = `${color}12`; e.currentTarget.style.borderColor = `${color}33`; }}
-            >
-              <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: color }}>{name}</div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{desc}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>By Format & Size</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {FORMATS.map(({ label, url }) => (
-            <button key={label} onClick={() => { window.open(url, '_blank'); toast('Opening download...'); }}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 10, cursor: 'pointer', background: 'var(--bg-card)', border: '1px solid var(--border)', transition: 'all 0.2s', textAlign: 'left' }}
-              onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderColor = 'var(--border-accent)'; }}
-              onMouseOut={e => { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-            >
-              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{label}</span>
-              <span style={{ color: 'var(--accent)', fontSize: 18, marginLeft: 8 }}>⬇</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '10px 12px', background: 'var(--surface)', borderRadius: 10, lineHeight: 1.7, marginTop: 12 }}>
-        💡 Click any button → site opens → click download → file saves to your device
-      </div>
-    </div>
-  );
-}
-
-
 // ── Main Modal ────────────────────────────────────────────────────────
 export default function TrackInfoModal({ track, onClose }) {
   const { playTrack, currentTrack, isPlaying, toggleLike, likedTracks, playlists, addToPlaylist, toast } = useApp();
@@ -160,7 +97,7 @@ export default function TrackInfoModal({ track, onClose }) {
 
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 20px' }}>
-          {[{ id: 'info', label: 'ℹ Info' }, { id: 'download', label: '⬇ Download' }, { id: 'playlist', label: '＋ Add to' }].map(t => (
+          {[{ id: 'info', label: 'ℹ Info' }, { id: 'playlist', label: '＋ Add to' }].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
               padding: '10px 16px', fontSize: 13, fontWeight: tab === t.id ? 700 : 400,
               color: tab === t.id ? 'var(--accent)' : 'var(--text-muted)',
@@ -202,7 +139,7 @@ export default function TrackInfoModal({ track, onClose }) {
             </div>
           )}
 
-          {tab === 'download' && <DownloadPanel track={track} details={details} />}
+          
 
           {tab === 'playlist' && (
             <div>
