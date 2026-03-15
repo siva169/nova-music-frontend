@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const AppContext = createContext(null);
 
-const API = axios.create({ baseURL: 'https://nova-music-backend-production.up.railway.app', withCredentials: true });
+const API = axios.create({ baseURL: 'http://localhost:3001', withCredentials: true });
 
 export function AppProvider({ children }) {
   // ── Auth ───────────────────────────────────────────────────────────────
@@ -51,13 +51,18 @@ export function AppProvider({ children }) {
 
   // ── Auth ───────────────────────────────────────────────────────────────
   useEffect(() => {
+    const timeout = setTimeout(() => setAuthLoading(false), 5000);
     API.get('/auth/me').then(r => {
       setUser(r.data.user);
       if (r.data.user) {
         setTheme(r.data.user.theme || 'dark');
         setAccent(r.data.user.accent || 'cyan');
       }
-    }).catch(() => {}).finally(() => setAuthLoading(false));
+    }).catch(() => {}).finally(() => {
+      clearTimeout(timeout);
+      setAuthLoading(false);
+    });
+    return () => clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
