@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.novamusic.app",
+    "sha256_cert_fingerprints": ["86:50:34:8F:1E:D0:AA:D6:35:B8:68:D9:02:BC:26:4D:E1:8F:19:4C:B8:1F:D4:41:0F:AC:75:69:15:4E:EB:02"]
+  }
+}]
