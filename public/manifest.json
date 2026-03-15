@@ -1,37 +1,66 @@
 {
-  "name": "NOVA — Your Universe of Sound",
+  "id": "com.nova.music",
+  "name": "NOVA Music",
   "short_name": "NOVA",
-  "description": "Stream all of YouTube as music. No ads. 8D Audio. Unlimited.",
+  "description": "Stream all of YouTube as music. No ads. 8D Audio. Unlimited playlists.",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#050510",
   "theme_color": "#00d4ff",
   "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": ["music", "entertainment"],
   "shortcuts": [
     {
       "name": "Search Music",
+      "short_name": "Search",
       "url": "/search",
-      "description": "Search for songs and videos"
+      "description": "Search for songs and videos",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "My Library",
+      "short_name": "Library",
       "url": "/library",
-      "description": "View your playlists"
+      "description": "View your playlists",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "NOVA Music App"
     }
   ]
 }
