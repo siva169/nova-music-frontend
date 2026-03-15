@@ -1,27 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useApp, API } from '../AppContext';
 
-function getApproxSize(durationMins, format, quality) {
-  const dur = parseFloat(durationMins) || 4;
-  const sizes = {
-    'mp3-320': dur * 2.4, 'mp3-192': dur * 1.44, 'mp3-128': dur * 0.96,
-    'mp4-1080': dur * 150, 'mp4-720': dur * 80, 'mp4-480': dur * 40,
-    'wav-best': dur * 10.5, 'ogg-high': dur * 1.92,
-  };
-  const mb = sizes[`${format}-${quality}`] || dur * 1.5;
-  return mb >= 1000 ? `${(mb/1000).toFixed(1)} GB` : `~${Math.round(mb)} MB`;
-}
-
 function parseDuration(iso) {
   if (!iso) return '?';
-  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  if (!match) return '?';
-  const h = parseInt(match[1] || 0), m = parseInt(match[2] || 0), s = parseInt(match[3] || 0);
-  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  return `${m}:${String(s).padStart(2,'0')}`;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return '?';
+  const h = parseInt(m[1]||0), mn = parseInt(m[2]||0), s = parseInt(m[3]||0);
+  if (h > 0) return `${h}:${String(mn).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${mn}:${String(s).padStart(2,'0')}`;
 }
 
-function formatViews(n) {
+function formatNum(n) {
   if (!n) return '?';
   const num = parseInt(n);
   if (num >= 1e9) return `${(num/1e9).toFixed(1)}B`;
@@ -30,149 +19,132 @@ function formatViews(n) {
   return `${num}`;
 }
 
-// ── Download using cobalt.tools (no server needed) ────────────────────
-async function downloadViaCobalt(videoId, format, quality, title, toast) {
-  const url = `https://www.youtube.com/watch?v=${videoId}`;
-  toast('Preparing download...', 'info');
-
-  try {
-    const isAudio = ['mp3', 'wav', 'ogg'].includes(format);
-    const body = {
-      url,
-      videoQuality: quality === '1080' ? '1080' : quality === '720' ? '720' : '480',
-      audioFormat: format === 'wav' ? 'wav' : format === 'ogg' ? 'ogg' : 'mp3',
-      audioBitrate: quality === '320' ? '320' : quality === '128' ? '128' : '192',
-      downloadMode: isAudio ? 'audio' : 'auto',
-      filenameStyle: 'basic',
-    };
-
-    const res = await fetch('https://api.cobalt.tools/v1/json', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(body)
-    });
-
-    const data = await res.json();
-
-    if (data.status === 'redirect' || data.status === 'stream' || data.status === 'tunnel') {
-      const link = document.createElement('a');
-      link.href = data.url;
-      link.download = `${title}.${format}`;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast(`Download started! Check your downloads folder ✓`);
-      return true;
-    } else if (data.status === 'picker') {
-      window.open(data.picker?.[0]?.url || url, '_blank');
-      toast('Opening download link...');
-      return true;
-    } else {
-      throw new Error(data.error?.code || 'Download failed');
-    }
-  } catch (err) {
-    // Fallback — open y2mate
-    window.open(`https://www.y2mate.com/youtube/${videoId}`, '_blank');
-    toast('Opened download page in new tab!', 'info');
-    return false;
-  }
+function getDurMins(iso) {
+  if (!iso) return 4;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 4;
+  return parseInt(m[1]||0)*60 + parseInt(m[2]||0) + parseInt(m[3]||0)/60;
 }
 
 // ── Download Panel ────────────────────────────────────────────────────
-function DownloadPanel({ track, durationMins }) {
-  const [done, setDone] = useState(null);
+function DownloadPanel({ track, details }) {
   const { toast } = useApp();
+  const dur = getDurMins(details?.duration);
+  const ytUrl = `https://www.youtube.com/watch?v=${track.id}`;
+  const enc = encodeURIComponent(ytUrl);
 
-  const FORMATS = [
+  // Multiple downloader sites — all free, no signup
+  const DOWNLOADERS = [
     {
-      id: 'audio', label: '🎵 Audio Only',
-      options: [
-        { format: 'mp3', quality: '320', label: 'MP3 — 320 kbps', desc: 'Best quality' },
-        { format: 'mp3', quality: '192', label: 'MP3 — 192 kbps', desc: 'Recommended' },
-        { format: 'mp3', quality: '128', label: 'MP3 — 128 kbps', desc: 'Smaller file' },
-        { format: 'wav', quality: 'best', label: 'WAV — Lossless', desc: 'Studio quality' },
-        { format: 'ogg', quality: 'high', label: 'OGG — High', desc: 'Open format' },
-      ]
+      name: '⚡ SnapSave',
+      desc: 'Fast & reliable',
+      url: `https://snapsave.app/result?url=${enc}`,
+      color: '#00d4ff'
     },
     {
-      id: 'video', label: '🎬 Video + Audio',
-      options: [
-        { format: 'mp4', quality: '1080', label: 'MP4 — 1080p Full HD', desc: 'Best video quality' },
-        { format: 'mp4', quality: '720', label: 'MP4 — 720p HD', desc: 'Recommended' },
-        { format: 'mp4', quality: '480', label: 'MP4 — 480p', desc: 'Smaller file' },
-      ]
-    }
+      name: '🎵 MP3 Direct',
+      desc: 'Audio only — best quality',
+      url: `https://www.yt-download.org/api/button/mp3/${track.id}`,
+      color: '#00ff88'
+    },
+    {
+      name: '🎬 SaveFrom',
+      desc: 'All formats & quality',
+      url: `https://en.savefrom.net/1-youtube-video-downloader/?url=${ytUrl}`,
+      color: '#bf5af2'
+    },
+    {
+      name: '📥 Y2Mate',
+      desc: 'MP3 & MP4 options',
+      url: `https://www.y2mate.com/youtube/${track.id}`,
+      color: '#ff9f0a'
+    },
+    {
+      name: '🔗 9xBuddy',
+      desc: 'Multiple formats',
+      url: `https://9xbuddy.in/process?url=${ytUrl}`,
+      color: '#ff2d55'
+    },
   ];
 
-  function handleDownload(format, quality) {
-    const key = `${format}-${quality}`;
-    const videoUrl = `https://www.youtube.com/watch?v=${track.id}`;
-    const isAudio = ['mp3', 'wav', 'ogg'].includes(format);
-    // Open cobalt.tools - best free downloader, no ads, works in browser
-    window.open(`https://cobalt.tools/?u=${encodeURIComponent(videoUrl)}`, '_blank');
-    setDone(key);
-    toast(`Opening download for: ${track.title} — select ${format.toUpperCase()} in the page`);
-    setTimeout(() => setDone(null), 5000);
-  }
+  const FORMATS = [
+    { label: '🎵 Audio Only (MP3)', options: [
+      { q: 'MP3 320 kbps — Best quality', size: `~${Math.round(dur*2.4)} MB`, url: `https://www.yt-download.org/api/button/mp3/${track.id}` },
+      { q: 'MP3 192 kbps — Recommended', size: `~${Math.round(dur*1.44)} MB`, url: `https://snapsave.app/result?url=${enc}` },
+      { q: 'MP3 128 kbps — Smaller file', size: `~${Math.round(dur*0.96)} MB`, url: `https://www.y2mate.com/youtube-mp3/${track.id}` },
+    ]},
+    { label: '🎬 Video + Audio (MP4)', options: [
+      { q: 'MP4 1080p — Full HD', size: `~${Math.round(dur*150)} MB`, url: `https://snapsave.app/result?url=${enc}` },
+      { q: 'MP4 720p — HD', size: `~${Math.round(dur*80)} MB`, url: `https://en.savefrom.net/1-youtube-video-downloader/?url=${ytUrl}` },
+      { q: 'MP4 480p — Smaller', size: `~${Math.round(dur*40)} MB`, url: `https://www.y2mate.com/youtube/${track.id}` },
+    ]},
+  ];
 
   return (
     <div>
+      {/* Quick Download Buttons */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>
+          ⚡ Quick Download Sites
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {DOWNLOADERS.map(({ name, desc, url, color }) => (
+            <button key={name} onClick={() => { window.open(url, '_blank'); toast(`Opening ${name}...`); }}
+              style={{
+                padding: '10px 12px', borderRadius: 10, textAlign: 'left', cursor: 'pointer',
+                background: `${color}15`, border: `1px solid ${color}44`,
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={e => { e.currentTarget.style.background = `${color}25`; e.currentTarget.style.borderColor = `${color}88`; }}
+              onMouseOut={e => { e.currentTarget.style.background = `${color}15`; e.currentTarget.style.borderColor = `${color}44`; }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 700, color: color, marginBottom: 2 }}>{name}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Format specific buttons */}
       {FORMATS.map(group => (
-        <div key={group.id} style={{ marginBottom: 18 }}>
+        <div key={group.label} style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>
             {group.label}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {group.options.map(({ format, quality, label, desc }) => {
-              const key = `${format}-${quality}`;
-              const isDown = false;
-              const isDone = done === key;
-              const size = getApproxSize(durationMins, format, quality);
-              return (
-                <button key={key} onClick={() => handleDownload(format, quality)}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 16px', borderRadius: 12, textAlign: 'left',
-                    background: isDone ? 'rgba(0,255,136,0.08)' : 'var(--bg-card)',
-                    border: `1px solid ${isDone ? 'rgba(0,255,136,0.3)' : 'var(--border)'}`,
-                    cursor: 'pointer', transition: 'all 0.2s'
-                  }}
-                  onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderColor = 'var(--border-accent)'; }}
-                  onMouseOut={e => { e.currentTarget.style.background = isDone ? 'rgba(0,255,136,0.08)' : 'var(--bg-card)'; e.currentTarget.style.borderColor = isDone ? 'rgba(0,255,136,0.3)' : 'var(--border)'; }}
-                >
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2, color: isDone ? '#00ff88' : 'var(--text-primary)' }}>
-                      {isDone ? '✓ Opening download!' : label}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{desc}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: 12 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--surface)', padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
-                      {size}
-                    </span>
-                    {isDown
-                      ? <div style={{ width: 16, height: 16, border: '2px solid var(--border)', borderTop: '2px solid var(--accent)', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
-                      : isDone
-                        ? <span style={{ color: '#00ff88' }}>✓</span>
-                        : <span style={{ color: 'var(--accent)', fontSize: 16 }}>⬇</span>
-                    }
-                  </div>
-                </button>
-              );
-            })}
+            {group.options.map(({ q, size, url }) => (
+              <button key={q} onClick={() => { window.open(url, '_blank'); toast(`Opening download...`); }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '11px 14px', borderRadius: 10, cursor: 'pointer',
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  transition: 'all 0.2s', textAlign: 'left'
+                }}
+                onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderColor = 'var(--border-accent)'; }}
+                onMouseOut={e => { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+              >
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>{q}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--surface)', padding: '3px 8px', borderRadius: 6 }}>{size}</span>
+                  <span style={{ color: 'var(--accent)', fontSize: 16 }}>⬇</span>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       ))}
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '10px 14px', background: 'var(--surface)', borderRadius: 10, lineHeight: 1.6 }}>
-        💡 Downloads powered by <strong>cobalt.tools</strong> — free, fast, no account needed.
-        If a format fails, try <a href={`https://cobalt.tools/?url=https://youtube.com/watch?v=${track.id}`} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>cobalt.tools directly</a>
+
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '10px 12px', background: 'var(--surface)', borderRadius: 10, lineHeight: 1.6, marginTop: 8 }}>
+        💡 Click any option → download site opens → click download button → file saves to your device.<br/>
+        If one site doesn't work, try another!
       </div>
     </div>
   );
 }
 
-// ── Main Track Info Modal ─────────────────────────────────────────────
+// ── Main Modal ────────────────────────────────────────────────────────
 export default function TrackInfoModal({ track, onClose }) {
   const { playTrack, currentTrack, isPlaying, toggleLike, likedTracks, playlists, addToPlaylist, toast } = useApp();
   const [tab, setTab] = useState('info');
@@ -185,14 +157,6 @@ export default function TrackInfoModal({ track, onClose }) {
   useEffect(() => {
     API.get(`/api/video/${track.id}`).then(r => setDetails(r.data)).catch(() => {}).finally(() => setLoading(false));
   }, [track.id]);
-
-  const durationMins = details?.duration
-    ? (() => {
-        const m = details.duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-        if (!m) return 4;
-        return (parseInt(m[1]||0)*60 + parseInt(m[2]||0) + parseInt(m[3]||0)/60);
-      })()
-    : 4;
 
   return (
     <div style={{
@@ -227,8 +191,8 @@ export default function TrackInfoModal({ track, onClose }) {
             {!loading && details && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {details.duration && <span style={{ fontSize: 11, background: 'var(--surface)', padding: '3px 8px', borderRadius: 6, color: 'var(--text-muted)' }}>⏱ {parseDuration(details.duration)}</span>}
-                {details.viewCount && <span style={{ fontSize: 11, background: 'var(--surface)', padding: '3px 8px', borderRadius: 6, color: 'var(--text-muted)' }}>👁 {formatViews(details.viewCount)}</span>}
-                {details.likeCount && <span style={{ fontSize: 11, background: 'var(--surface)', padding: '3px 8px', borderRadius: 6, color: 'var(--text-muted)' }}>👍 {formatViews(details.likeCount)}</span>}
+                {details.viewCount && <span style={{ fontSize: 11, background: 'var(--surface)', padding: '3px 8px', borderRadius: 6, color: 'var(--text-muted)' }}>👁 {formatNum(details.viewCount)}</span>}
+                {details.likeCount && <span style={{ fontSize: 11, background: 'var(--surface)', padding: '3px 8px', borderRadius: 6, color: 'var(--text-muted)' }}>👍 {formatNum(details.likeCount)}</span>}
               </div>
             )}
           </div>
@@ -240,7 +204,7 @@ export default function TrackInfoModal({ track, onClose }) {
           <button onClick={() => { playTrack(track, [track], 0); onClose(); }} className="btn-accent" style={{ flex: 1, padding: 10, fontSize: 13 }}>
             {isCurrentTrack && isPlaying ? '⏸ Pause' : '▶ Play'}
           </button>
-          <button onClick={() => toggleLike(track)} style={{ padding: '10px 16px', borderRadius: 99, background: isLiked ? 'rgba(255,45,85,0.15)' : 'var(--surface)', border: `1px solid ${isLiked ? '#ff2d55' : 'var(--border)'}`, color: isLiked ? '#ff2d55' : 'var(--text-secondary)', fontSize: 13, fontWeight: 600 }}>
+          <button onClick={() => toggleLike(track)} style={{ padding: '10px 16px', borderRadius: 99, background: isLiked ? 'rgba(255,45,85,0.15)' : 'var(--surface)', border: `1px solid ${isLiked ? '#ff2d55' : 'var(--border)'}`, color: isLiked ? '#ff2d55' : 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             {isLiked ? '♥ Liked' : '♡ Like'}
           </button>
           <a href={`https://youtube.com/watch?v=${track.id}`} target="_blank" rel="noreferrer"
@@ -256,12 +220,13 @@ export default function TrackInfoModal({ track, onClose }) {
               padding: '10px 16px', fontSize: 13, fontWeight: tab === t.id ? 700 : 400,
               color: tab === t.id ? 'var(--accent)' : 'var(--text-muted)',
               borderBottom: tab === t.id ? '2px solid var(--accent)' : '2px solid transparent',
-              transition: 'all 0.2s', marginBottom: -1
+              transition: 'all 0.2s', marginBottom: -1, cursor: 'pointer', background: 'none', border: 'none',
+              borderBottom: tab === t.id ? '2px solid var(--accent)' : '2px solid transparent',
             }}>{t.label}</button>
           ))}
         </div>
 
-        {/* Tab content */}
+        {/* Content */}
         <div style={{ padding: 20 }}>
           {tab === 'info' && (
             <div>
@@ -278,7 +243,7 @@ export default function TrackInfoModal({ track, onClose }) {
                     {[
                       { label: 'Channel', value: details?.channel || track.channel },
                       { label: 'Duration', value: parseDuration(details?.duration) },
-                      { label: 'Views', value: formatViews(details?.viewCount) },
+                      { label: 'Views', value: formatNum(details?.viewCount) },
                       { label: 'Published', value: details?.publishedAt ? new Date(details.publishedAt).toLocaleDateString() : '?' },
                     ].map(({ label, value }) => (
                       <div key={label} style={{ background: 'var(--surface)', borderRadius: 10, padding: '10px 14px' }}>
@@ -292,13 +257,13 @@ export default function TrackInfoModal({ track, onClose }) {
             </div>
           )}
 
-          {tab === 'download' && <DownloadPanel track={track} durationMins={durationMins} />}
+          {tab === 'download' && <DownloadPanel track={track} details={details} />}
 
           {tab === 'playlist' && (
             <div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>Add to your playlists:</div>
               {playlists.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)', fontSize: 13 }}>No playlists yet — create one from the sidebar!</div>
+                <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)', fontSize: 13 }}>No playlists yet!</div>
               ) : playlists.map(pl => (
                 <button key={pl.id} onClick={() => { addToPlaylist(pl.id, track); toast(`Added to ${pl.name} ✓`); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 14px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', marginBottom: 8, cursor: 'pointer', transition: 'all 0.2s' }}
