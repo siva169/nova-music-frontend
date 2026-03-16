@@ -2,15 +2,11 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import axios from 'axios';
 
 const AppContext = createContext(null);
-
 const API = axios.create({ baseURL: 'https://nova-music-backend-production.up.railway.app', withCredentials: true });
 
 export function AppProvider({ children }) {
-  // ── Auth ───────────────────────────────────────────────────────────────
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-
-  // ── Player State ───────────────────────────────────────────────────────
   const [currentTrack, setCurrentTrack] = useState(null);
   const [queue, setQueue] = useState([]);
   const [queueIndex, setQueueIndex] = useState(0);
@@ -23,8 +19,6 @@ export function AppProvider({ children }) {
   const [repeatMode, setRepeatMode] = useState('none');
   const [is8D, setIs8D] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
-
-  // ── UI State ───────────────────────────────────────────────────────────
   const [theme, setTheme] = useState('dark');
   const [accent, setAccent] = useState('cyan');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -33,35 +27,26 @@ export function AppProvider({ children }) {
   const [likedTracks, setLikedTracks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // ── Refs ───────────────────────────────────────────────────────────────
   const playerRef = useRef(null);
   const audioCtxRef = useRef(null);
   const pannerRef = useRef(null);
   const panAnimRef = useRef(null);
-  const sourceRef = useRef(null);
   const gainRef = useRef(null);
   const keepAliveRef = useRef(null);
+  const wakeLockRef = useRef(null);
 
-  // ── Toast System ───────────────────────────────────────────────────────
   const toast = useCallback((msg, type = 'info') => {
     const id = Date.now();
     setToasts(t => [...t, { id, msg, type }]);
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3000);
   }, []);
 
-  // ── Auth ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const timeout = setTimeout(() => setAuthLoading(false), 5000);
     API.get('/auth/me').then(r => {
       setUser(r.data.user);
-      if (r.data.user) {
-        setTheme(r.data.user.theme || 'dark');
-        setAccent(r.data.user.accent || 'cyan');
-      }
-    }).catch(() => {}).finally(() => {
-      clearTimeout(timeout);
-      setAuthLoading(false);
-    });
+      if (r.data.user) { setTheme(r.data.user.theme || 'dark'); setAccent(r.data.user.accent || 'cyan'); }
+    }).catch(() => {}).finally(() => { clearTimeout(timeout); setAuthLoading(false); });
     return () => clearTimeout(timeout);
   }, []);
 
@@ -70,104 +55,77 @@ export function AppProvider({ children }) {
     document.documentElement.setAttribute('data-accent', accent);
   }, [theme, accent]);
 
-  // ── Background Play Keep-Alive ─────────────────────────────────────────
   useEffect(() => {
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
-    }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   }, []);
 
   useEffect(() => {
-    // Keep service worker alive when playing
     if (isPlaying) {
       keepAliveRef.current = setInterval(() => {
-        if (navigator.serviceWorker.controller) {
-          navigator.serviceWorker.controller.postMessage({ type: 'KEEP_ALIVE' });
-        }
-      }, 20000);
-    } else {
-      clearInterval(keepAliveRef.current);
-    }
+        navigator.serviceWorker?.controller?.postMessage({ type: 'KEEP_ALIVE' });
+      }, 15000);
+    } else clearInterval(keepAliveRef.current);
     return () => clearInterval(keepAliveRef.current);
   }, [isPlaying]);
 
-  // ── Wake Lock API - prevents screen/CPU sleep during playback ──────────
-  const wakeLockRef = useRef(null);
   useEffect(() => {
     async function manageWakeLock() {
       if (isPlaying && 'wakeLock' in navigator) {
         try {
-          wakeLockRef.current = await navigator.wakeLock.request('screen');
+          if (!wakeLockRef.current || wakeLockRef.current.released) {
+            wakeLockRef.current = await navigator.wakeLock.request('screen');
+          }
         } catch {}
-      } else if (wakeLockRef.current) {
+      } else if (wakeLockRef.current && !wakeLockRef.current.released) {
         try { await wakeLockRef.current.release(); } catch {}
-        wakeLockRef.current = null;
       }
     }
     manageWakeLock();
   }, [isPlaying]);
 
-  // ── Playlists ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    async function handleVisibility() {
+      if (!document.hidden && isPlaying && 'wakeLock' in navigator) {
+        try {
+          if (!wakeLockRef.current || wakeLockRef.current.released)
+            wakeLockRef.current = await navigator.wakeLock.request('screen');
+        } catch {}
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [isPlaying]);
+
   const fetchPlaylists = useCallback(async () => {
     if (!user) return;
-    try {
-      const r = await API.get('/api/playlists');
-      setPlaylists(r.data.playlists);
-    } catch {}
+    try { const r = await API.get('/api/playlists'); setPlaylists(r.data.playlists); } catch {}
   }, [user]);
 
   const fetchLiked = useCallback(async () => {
     if (!user) return;
-    try {
-      const r = await API.get('/api/liked');
-      setLikedTracks(r.data.tracks);
-    } catch {}
+    try { const r = await API.get('/api/liked'); setLikedTracks(r.data.tracks); } catch {}
   }, [user]);
 
-  useEffect(() => {
-    if (user) { fetchPlaylists(); fetchLiked(); }
-  }, [user, fetchPlaylists, fetchLiked]);
+  useEffect(() => { if (user) { fetchPlaylists(); fetchLiked(); } }, [user, fetchPlaylists, fetchLiked]);
 
-  // ── 8D Audio Engine ────────────────────────────────────────────────────
   const start8D = useCallback(() => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    }
+    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     const ctx = audioCtxRef.current;
-    if (pannerRef.current) {
-      pannerRef.current.disconnect();
-      cancelAnimationFrame(panAnimRef.current);
-    }
+    if (pannerRef.current) { pannerRef.current.disconnect(); cancelAnimationFrame(panAnimRef.current); }
     const panner = ctx.createPanner();
-    panner.panningModel = 'HRTF';
-    panner.distanceModel = 'inverse';
-    panner.refDistance = 1;
-    panner.maxDistance = 10000;
-    panner.rolloffFactor = 1;
-    panner.coneInnerAngle = 360;
-    panner.coneOuterAngle = 0;
-    panner.coneOuterGain = 0;
-
+    panner.panningModel = 'HRTF'; panner.distanceModel = 'inverse';
+    panner.refDistance = 1; panner.maxDistance = 10000; panner.rolloffFactor = 1;
+    panner.coneInnerAngle = 360; panner.coneOuterAngle = 0; panner.coneOuterGain = 0;
     const gain = ctx.createGain();
     gain.gain.value = volume;
-    panner.connect(gain);
-    gain.connect(ctx.destination);
-
-    pannerRef.current = panner;
-    gainRef.current = gain;
-
+    panner.connect(gain); gain.connect(ctx.destination);
+    pannerRef.current = panner; gainRef.current = gain;
     let angle = 0;
-    const RADIUS = 5;
-    const SPEED = 0.5;
-
     function animatePan() {
-      angle += (SPEED * Math.PI * 2) / 60;
-      const x = Math.sin(angle) * RADIUS;
-      const z = Math.cos(angle) * RADIUS;
-      panner.positionX?.setValueAtTime(x, ctx.currentTime);
+      angle += (0.5 * Math.PI * 2) / 60;
+      panner.positionX?.setValueAtTime(Math.sin(angle) * 5, ctx.currentTime);
       panner.positionY?.setValueAtTime(0.5, ctx.currentTime);
-      panner.positionZ?.setValueAtTime(z, ctx.currentTime);
+      panner.positionZ?.setValueAtTime(Math.cos(angle) * 5, ctx.currentTime);
       panAnimRef.current = requestAnimationFrame(animatePan);
     }
     animatePan();
@@ -179,7 +137,19 @@ export function AppProvider({ children }) {
     if (audioCtxRef.current) { audioCtxRef.current.close(); audioCtxRef.current = null; }
   }, []);
 
-  // ── Media Session API (Background play controls) ───────────────────────
+  const nextTrack = useCallback(() => {
+    if (!queue.length) return;
+    const nextIdx = isShuffled ? Math.floor(Math.random() * queue.length) : (queueIndex + 1) % queue.length;
+    setQueueIndex(nextIdx); setCurrentTrack(queue[nextIdx]); setIsPlaying(true); setProgress(0);
+  }, [queue, queueIndex, isShuffled]);
+
+  const prevTrack = useCallback(() => {
+    if (!queue.length) return;
+    if (progress > 3) { if (playerRef.current) playerRef.current.seekTo(0); setProgress(0); return; }
+    const prevIdx = (queueIndex - 1 + queue.length) % queue.length;
+    setQueueIndex(prevIdx); setCurrentTrack(queue[prevIdx]); setIsPlaying(true); setProgress(0);
+  }, [queue, queueIndex, progress]);
+
   useEffect(() => {
     if (!currentTrack || !('mediaSession' in navigator)) return;
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -191,141 +161,64 @@ export function AppProvider({ children }) {
         { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
       ]
     });
-    navigator.mediaSession.setActionHandler('play', () => {
-      setIsPlaying(true);
-      try { playerRef.current?.playVideo?.(); } catch {}
-    });
-    navigator.mediaSession.setActionHandler('pause', () => {
-      setIsPlaying(false);
-      try { playerRef.current?.pauseVideo?.(); } catch {}
-    });
+    navigator.mediaSession.setActionHandler('play', () => { setIsPlaying(true); try { playerRef.current?.playVideo?.(); } catch {} });
+    navigator.mediaSession.setActionHandler('pause', () => { setIsPlaying(false); try { playerRef.current?.pauseVideo?.(); } catch {} });
     navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
     navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
-    navigator.mediaSession.setActionHandler('seekto', (details) => {
-      if (details.seekTime && playerRef.current) {
-        try { playerRef.current.seekTo(details.seekTime, true); } catch {}
-        setProgress(details.seekTime);
-      }
+    navigator.mediaSession.setActionHandler('seekto', (d) => {
+      if (d.seekTime && playerRef.current) { try { playerRef.current.seekTo(d.seekTime, true); } catch {} setProgress(d.seekTime); }
     });
-  }, [currentTrack]);
+  }, [currentTrack, nextTrack, prevTrack]);
 
-  // Update media session playback state
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
   }, [isPlaying]);
 
-  // Update media session position
   useEffect(() => {
     if (!('mediaSession' in navigator) || !duration) return;
-    try {
-      navigator.mediaSession.setPositionState({
-        duration: duration,
-        playbackRate: 1,
-        position: Math.min(progress, duration),
-      });
-    } catch {}
+    try { navigator.mediaSession.setPositionState({ duration, playbackRate: 1, position: Math.min(progress, duration) }); } catch {}
   }, [progress, duration]);
 
-  // ── Playback Controls ──────────────────────────────────────────────────
   const playTrack = useCallback((track, newQueue = null, startIndex = 0) => {
-    if (newQueue) {
-      setQueue(newQueue);
-      setQueueIndex(startIndex);
-    }
-    setCurrentTrack(track);
-    setIsPlaying(true);
-    setProgress(0);
+    if (newQueue) { setQueue(newQueue); setQueueIndex(startIndex); }
+    setCurrentTrack(track); setIsPlaying(true); setProgress(0);
     if (is8D) start8D();
   }, [is8D, start8D]);
 
-  const nextTrack = useCallback(() => {
-    if (!queue.length) return;
-    let nextIdx;
-    if (isShuffled) {
-      nextIdx = Math.floor(Math.random() * queue.length);
-    } else {
-      nextIdx = (queueIndex + 1) % queue.length;
-    }
-    setQueueIndex(nextIdx);
-    setCurrentTrack(queue[nextIdx]);
-    setIsPlaying(true);
-    setProgress(0);
-  }, [queue, queueIndex, isShuffled]);
-
-  const prevTrack = useCallback(() => {
-    if (!queue.length) return;
-    if (progress > 3) {
-      if (playerRef.current) playerRef.current.seekTo(0);
-      setProgress(0);
-      return;
-    }
-    const prevIdx = (queueIndex - 1 + queue.length) % queue.length;
-    setQueueIndex(prevIdx);
-    setCurrentTrack(queue[prevIdx]);
-    setIsPlaying(true);
-    setProgress(0);
-  }, [queue, queueIndex, progress]);
-
   const onTrackEnd = useCallback(() => {
-    if (repeatMode === 'one') {
-      if (playerRef.current) playerRef.current.seekTo(0);
-      setIsPlaying(true);
-    } else if (repeatMode === 'all' || queueIndex < queue.length - 1) {
-      nextTrack();
-    } else {
-      setIsPlaying(false);
-    }
+    if (repeatMode === 'one') { if (playerRef.current) playerRef.current.seekTo(0); setIsPlaying(true); }
+    else if (repeatMode === 'all' || queueIndex < queue.length - 1) nextTrack();
+    else setIsPlaying(false);
   }, [repeatMode, queueIndex, queue.length, nextTrack]);
 
   const toggleLike = useCallback(async (track) => {
     if (!user) { toast('Sign in to like songs', 'warning'); return; }
     const isLiked = likedTracks.some(t => t.id === track.id);
     try {
-      if (isLiked) {
-        await API.delete(`/api/liked/${track.id}`);
-        setLikedTracks(l => l.filter(t => t.id !== track.id));
-        toast('Removed from liked songs');
-      } else {
-        await API.post('/api/liked', { track });
-        setLikedTracks(l => [...l, track]);
-        toast('Added to liked songs ♥');
-      }
+      if (isLiked) { await API.delete(`/api/liked/${track.id}`); setLikedTracks(l => l.filter(t => t.id !== track.id)); toast('Removed from liked songs'); }
+      else { await API.post('/api/liked', { track }); setLikedTracks(l => [...l, track]); toast('Added to liked songs ♥'); }
     } catch { toast('Error updating liked songs', 'error'); }
   }, [user, likedTracks, toast]);
 
   const addToPlaylist = useCallback(async (playlistId, track) => {
-    try {
-      await API.post(`/api/playlists/${playlistId}/tracks`, { track });
-      toast('Added to playlist ✓');
-      fetchPlaylists();
-    } catch { toast('Error adding to playlist', 'error'); }
+    try { await API.post(`/api/playlists/${playlistId}/tracks`, { track }); toast('Added to playlist ✓'); fetchPlaylists(); }
+    catch { toast('Error adding to playlist', 'error'); }
   }, [toast, fetchPlaylists]);
 
   const createPlaylist = useCallback(async (name, description = '') => {
     if (!user) { toast('Sign in to create playlists', 'warning'); return; }
-    try {
-      const r = await API.post('/api/playlists', { name, description });
-      setPlaylists(p => [...p, r.data.playlist]);
-      toast(`Playlist "${name}" created ✓`);
-      return r.data.playlist;
-    } catch { toast('Error creating playlist', 'error'); }
+    try { const r = await API.post('/api/playlists', { name, description }); setPlaylists(p => [...p, r.data.playlist]); toast(`Playlist "${name}" created ✓`); return r.data.playlist; }
+    catch { toast('Error creating playlist', 'error'); }
   }, [user, toast]);
 
   const saveSettings = useCallback(async (newTheme, newAccent) => {
-    setTheme(newTheme);
-    setAccent(newAccent);
-    if (user) {
-      try { await API.put('/api/user/settings', { theme: newTheme, accent: newAccent }); } catch {}
-    }
+    setTheme(newTheme); setAccent(newAccent);
+    if (user) { try { await API.put('/api/user/settings', { theme: newTheme, accent: newAccent }); } catch {} }
   }, [user]);
 
   const logout = useCallback(async () => {
-    await API.post('/auth/logout');
-    setUser(null);
-    setPlaylists([]);
-    setLikedTracks([]);
-    toast('Signed out');
+    await API.post('/auth/logout'); setUser(null); setPlaylists([]); setLikedTracks([]); toast('Signed out');
   }, [toast]);
 
   const value = {
@@ -341,9 +234,7 @@ export function AppProvider({ children }) {
     toggleLike, addToPlaylist, createPlaylist,
     theme, accent, saveSettings,
     sidebarOpen, setSidebarOpen,
-    toasts, toast,
-    searchQuery, setSearchQuery,
-    API
+    toasts, toast, searchQuery, setSearchQuery, API
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
