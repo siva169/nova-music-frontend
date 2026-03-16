@@ -1,8 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../AppContext';
-import { NovaLogoMark } from './NovaLogo';
-
+import { NovaLogoFull } from './NovaLogo';
 export default function MobileHeader() {
   const { user, setSidebarOpen, currentTrack } = useApp();
   const navigate = useNavigate();
@@ -35,7 +34,6 @@ export default function MobileHeader() {
         onClick={() => navigate('/home')}
         style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
       >
-        <NovaLogoMark size={28} />
         <span style={{
           fontFamily: "'Bebas Neue', sans-serif",
           fontSize: 22,
