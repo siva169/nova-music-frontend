@@ -1,9 +1,51 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp, API } from '../AppContext';
-import TrackCard from '../components/TrackCard';
+
+function TrackCard({ track, queue, index }) {
+  const { playTrack, currentTrack, isPlaying, toggleLike, likedTracks } = useApp();
+  const isCurrentTrack = currentTrack?.id === track.id;
+  const isLiked = likedTracks.some(t => t.id === track.id);
+
+  return (
+    <div onClick={() => playTrack(track, queue, index)} style={{
+      background:'var(--bg-card)', borderRadius:8,
+      overflow:'hidden', cursor:'pointer', transition:'all 0.2s',
+      border: isCurrentTrack ? '1px solid var(--border-accent)' : '1px solid transparent'
+    }}
+      onMouseOver={e => { e.currentTarget.style.background='var(--bg-elevated)'; }}
+      onMouseOut={e => { e.currentTarget.style.background='var(--bg-card)'; }}
+    >
+      <div style={{position:'relative', paddingBottom:'100%', overflow:'hidden'}}>
+        <img src={track.thumbnail} alt="" style={{position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover'}} />
+        {isCurrentTrack && isPlaying && (
+          <div style={{position:'absolute', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center'}}>
+            <div className="eq-bars"><span/><span/><span/></div>
+          </div>
+        )}
+        <button onClick={e => { e.stopPropagation(); toggleLike(track); }} style={{
+          position:'absolute', top:6, right:6,
+          background:'rgba(0,0,0,0.6)', borderRadius:'50%',
+          width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center',
+          color:isLiked?'#ff2d55':'rgba(255,255,255,0.7)', fontSize:13,
+          border:'none', cursor:'pointer'
+        }}>♥</button>
+      </div>
+      <div style={{padding:'8px 10px 10px'}}>
+        <div style={{fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:isCurrentTrack?'var(--accent)':'var(--text-primary)', marginBottom:2}}>
+          {track.title}
+        </div>
+        <div style={{fontSize:10, color:'var(--text-muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+          {track.channel}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function HomePage() {
-  const { user, playTrack } = useApp();
+  const { user } = useApp();
+  const navigate = useNavigate();
   const [trending, setTrending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
@@ -16,58 +58,59 @@ export default function HomePage() {
 
   const firstName = user?.name?.split(' ')[0] || 'there';
 
-  function SkeletonCard() {
-    return (
-      <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-        <div className="skeleton" style={{ paddingBottom: '56.25%', width: '100%' }} />
-        <div style={{ padding: '10px 0 0' }}>
-          <div className="skeleton" style={{ height: 14, marginBottom: 6, borderRadius: 6 }} />
-          <div className="skeleton" style={{ height: 11, width: '60%', borderRadius: 6 }} />
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ animation: 'fadeIn 0.4s ease' }}>
+    <div style={{animation:'fadeIn 0.4s ease'}}>
       {/* Header */}
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>
+      <div style={{marginBottom:20}}>
+        <h1 style={{fontSize:22, fontWeight:800, marginBottom:2}}>
           {greeting}, {firstName} 👋
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-          What do you want to listen to today?
-        </p>
+        <p style={{color:'var(--text-muted)', fontSize:13}}>What do you want to listen to today?</p>
       </div>
 
-      {/* Quick Picks */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8, marginBottom: 40 }}>
+      {/* Quick picks */}
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:28}}>
         {[
-          { label: '🔥 Trending', query: 'trending music 2025', color: '#ff2d55' },
-          { label: '💿 New Releases', query: 'new music 2025', color: '#00d4ff' },
-          { label: '🎙 Podcasts', query: 'popular podcasts', color: '#bf5af2' },
-          { label: '🎸 Rock', query: 'rock music', color: '#ff9f0a' },
-          { label: '🎹 Chill', query: 'chill lo-fi music', color: '#30d158' },
-          { label: '🎤 Hip-Hop', query: 'hip hop music 2025', color: '#64d2ff' },
-        ].map(({ label, query, color }) => (
-          <button key={label} onClick={() => window.location.href = `/search?q=${encodeURIComponent(query)}`}
-            style={{ background: `linear-gradient(135deg, ${color}22, ${color}08)`, border: `1px solid ${color}44`, borderRadius: 'var(--radius-sm)', padding: '14px 16px', textAlign: 'left', color: 'var(--text-primary)', fontWeight: 600, fontSize: 13, transition: 'var(--transition)' }}
-            onMouseOver={e => { e.currentTarget.style.background = `linear-gradient(135deg, ${color}33, ${color}15)`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseOut={e => { e.currentTarget.style.background = `linear-gradient(135deg, ${color}22, ${color}08)`; e.currentTarget.style.transform = ''; }}
+          {label:'🔥 Trending', q:'trending music 2025', color:'#e13300'},
+          {label:'💿 New Releases', q:'new music 2025', color:'#006450'},
+          {label:'🎸 Rock', q:'rock music', color:'#1e3264'},
+          {label:'🎹 Chill', q:'lofi chill music', color:'#8400e7'},
+          {label:'🎤 Hip-Hop', q:'hip hop 2025', color:'#e8115b'},
+          {label:'🎙 Podcasts', q:'popular podcasts', color:'#503750'},
+        ].map(({label, q, color}) => (
+          <button key={label} onClick={() => navigate(`/search?q=${encodeURIComponent(q)}`)}
+            style={{
+              background:`linear-gradient(135deg, ${color}dd, ${color}88)`,
+              borderRadius:8, padding:'14px 12px',
+              textAlign:'left', color:'white', fontWeight:700, fontSize:13,
+              border:'none', cursor:'pointer', transition:'filter 0.2s'
+            }}
+            onMouseOver={e => e.currentTarget.style.filter='brightness(1.2)'}
+            onMouseOut={e => e.currentTarget.style.filter='brightness(1)'}
           >{label}</button>
         ))}
       </div>
 
-      {/* Trending */}
+      {/* Trending section */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700 }}>🔥 Trending Music</h2>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Updated daily</span>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12}}>
+          <h2 style={{fontSize:18, fontWeight:700}}>🔥 Trending</h2>
+          <span style={{fontSize:11, color:'var(--text-muted)'}}>Updated daily</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+        <div style={{
+          display:'grid',
+          gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))',
+          gap:12
+        }}>
           {loading
-            ? Array(12).fill(0).map((_, i) => <SkeletonCard key={i} />)
-            : trending.map((t, i) => <TrackCard key={t.id} track={t} queue={trending} index={i} />)
+            ? Array(12).fill(0).map((_,i) => (
+                <div key={i}>
+                  <div className="skeleton" style={{paddingBottom:'100%', borderRadius:8, marginBottom:6}} />
+                  <div className="skeleton" style={{height:12, borderRadius:4, marginBottom:4}} />
+                  <div className="skeleton" style={{height:10, width:'70%', borderRadius:4}} />
+                </div>
+              ))
+            : trending.map((t,i) => <TrackCard key={t.id} track={t} queue={trending} index={i} />)
           }
         </div>
       </div>

@@ -17,16 +17,14 @@ import { LibraryPage, LikedPage, PlaylistPage, SharedPage, SettingsPage } from '
 
 function LoadingScreen() {
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100dvh', background:'#050510', flexDirection:'column', gap:0 }}>
-      <NovaLogoFull size={150} />
-      <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:44, letterSpacing:12, marginTop:-8,
-        background:'linear-gradient(135deg,#ffffff 0%,#00d4ff 50%,#bf5af2 100%)',
-        WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>NOVA</div>
-      <div style={{ fontSize:11, color:'rgba(180,220,255,0.35)', letterSpacing:4, marginTop:8, textTransform:'uppercase' }}>
-        Loading your universe...
-      </div>
-      <div style={{ width:120, height:2, background:'rgba(255,255,255,0.08)', borderRadius:99, marginTop:24, overflow:'hidden' }}>
-        <div style={{ height:'100%', background:'linear-gradient(90deg,#00d4ff,#bf5af2)', borderRadius:99, animation:'loadBar 1.5s ease-in-out infinite' }} />
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100dvh',background:'#050510',flexDirection:'column'}}>
+      <NovaLogoFull size={140} />
+      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:42,letterSpacing:12,marginTop:-4,
+        background:'linear-gradient(135deg,#ffffff,#00d4ff,#bf5af2)',
+        WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>NOVA</div>
+      <div style={{fontSize:11,color:'rgba(180,220,255,0.35)',letterSpacing:4,marginTop:8,textTransform:'uppercase'}}>Loading...</div>
+      <div style={{width:100,height:2,background:'rgba(255,255,255,0.08)',borderRadius:99,marginTop:20,overflow:'hidden'}}>
+        <div style={{height:'100%',background:'linear-gradient(90deg,#00d4ff,#bf5af2)',borderRadius:99,animation:'loadBar 1.5s ease-in-out infinite'}} />
       </div>
     </div>
   );
@@ -48,15 +46,13 @@ function AppShell() {
     <div className="app-layout">
       <Sidebar />
 
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)} style={{
-          position:'fixed', inset:0, background:'rgba(0,0,0,0.7)',
-          zIndex:299, backdropFilter:'blur(4px)'
+          position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',
+          zIndex:299,backdropFilter:'blur(4px)'
         }} />
       )}
 
-      {/* Mobile header */}
       <MobileHeader />
 
       <div className="main-content" id="main-scroll">
