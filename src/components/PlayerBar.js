@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../AppContext';
-import YouTube from 'react-youtube';
 import TrackInfoModal from './TrackInfoModal';
 
 export default function PlayerBar() {
@@ -52,15 +51,13 @@ export default function PlayerBar() {
 
   useEffect(() => { if (is8D) start8D(); else stop8D(); }, [is8D]);
 
-  function onReady(e) {
-    playerRef.current = e.target; setPlayerReady(true);
-    e.target.setVolume((isMuted ? 0 : volume) * 100);
-    if (isPlaying) e.target.playVideo();
-  }
-  function onStateChange(e) {
-    if (e.data === 1) setIsPlaying(true);
-    else if (e.data === 2) setIsPlaying(false);
-    else if (e.data === 0) onTrackEnd();
+  function handleAudioRef(el) {
+    if (!el) return;
+    el.playVideo = () => el.play().catch(() => {});
+    el.pauseVideo = () => el.pause();
+    el.seekTo = (s) => { el.currentTime = s; };
+    el.setVolume = (v) => { el.volume = Math.max(0, Math.min(1, v / 100)); };
+    playerRef.current = el;
   }
   function seek(e) {
     if (!duration) return;
@@ -77,13 +74,22 @@ export default function PlayerBar() {
 
   return (
     <>
-      {/* Hidden YouTube */}
-      {currentTrack && (
-        <div style={{position:'fixed',top:-9999,left:-9999,width:1,height:1,overflow:'hidden',pointerEvents:'none'}}>
-          <YouTube key={`${currentTrack.id}-${ytKey}`} videoId={currentTrack.id}
-            opts={{playerVars:{autoplay:isPlaying?1:0,controls:0,modestbranding:1,rel:0,playsinline:1,origin:window.location.origin}}}
-            onReady={onReady} onStateChange={onStateChange} onEnd={onTrackEnd} />
-        </div>
+      {/* Native Audio Layer */}
+      {currentTrack && currentTrack.streamUrl && (
+        <audio 
+          key={`${currentTrack.id}-${ytKey}`}
+          ref={handleAudioRef}
+          src={currentTrack.streamUrl}
+          autoPlay={isPlaying}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onEnded={onTrackEnd}
+          onLoadedMetadata={(e) => {
+             setDuration(e.target.duration || 0);
+             setPlayerReady(true);
+             e.target.volume = isMuted ? 0 : volume;
+          }}
+        />
       )}
 
       {/* ── Spotify-style Mini Player ── */}
@@ -216,9 +222,9 @@ export default function PlayerBar() {
               color:'#fff', fontSize:13, fontWeight:700,
               border:'1px solid rgba(255,255,255,0.2)', cursor:'pointer'
             }}>🎧 {is8D?'8D ON':'8D OFF'}</button>
-            <button onClick={() => window.open(`https://youtube.com/watch?v=${currentTrack?.id}`,'_blank')}
+            <button onClick={() => window.open(`https://www.jiosaavn.com`,'_blank')}
               style={{padding:'8px 20px', borderRadius:99, background:'rgba(255,255,255,0.08)', color:'#fff', fontSize:13, fontWeight:700, border:'1px solid rgba(255,255,255,0.2)', cursor:'pointer'}}>
-              ▶ YouTube
+              ▶ JioSaavn
             </button>
             <div style={{position:'relative'}}>
               <button onClick={() => setShowAddTo(s => !s)}
