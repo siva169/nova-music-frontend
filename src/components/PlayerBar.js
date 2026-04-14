@@ -26,27 +26,13 @@ export default function PlayerBar() {
   }, [currentTrack?.id]);
 
   useEffect(() => {
-    if (isPlaying && playerRef.current) {
-      progressInterval.current = setInterval(() => {
-        try {
-          const curr = playerRef.current.getCurrentTime?.() || 0;
-          const dur = playerRef.current.getDuration?.() || 0;
-          setProgress(curr); setDuration(dur);
-          if (dur > 0 && curr >= dur - 0.5) onTrackEnd();
-        } catch {}
-      }, 500);
-    }
-    return () => clearInterval(progressInterval.current);
-  }, [isPlaying, currentTrack]);
-
-  useEffect(() => {
     if (!playerRef.current) return;
     try { if (isPlaying) playerRef.current.playVideo?.(); else playerRef.current.pauseVideo?.(); } catch {}
   }, [isPlaying]);
 
   useEffect(() => {
     if (!playerRef.current) return;
-    try { playerRef.current.setVolume?.((isMuted ? 0 : volume) * 100); } catch {}
+    try { playerRef.current.setVolume?.(isMuted ? 0 : volume); } catch {}
   }, [volume, isMuted]);
 
   useEffect(() => { if (is8D) start8D(); else stop8D(); }, [is8D]);
@@ -56,15 +42,21 @@ export default function PlayerBar() {
     el.playVideo = () => el.play().catch(() => {});
     el.pauseVideo = () => el.pause();
     el.seekTo = (s) => { el.currentTime = s; };
-    el.setVolume = (v) => { el.volume = Math.max(0, Math.min(1, v / 100)); };
+    el.setVolume = (v) => { el.volume = Math.max(0, Math.min(1, v)); };
     playerRef.current = el;
   }
   function seek(e) {
     if (!duration) return;
+    const touch = e.touches?.[0] || e.changedTouches?.[0];
+    const clientX = touch ? touch.clientX : e.clientX;
     const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    const t = Math.max(0, Math.min(duration, pct * duration));
-    setProgress(t); try { playerRef.current?.seekTo?.(t, true); } catch {}
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const t = pct * duration;
+    setProgress(t);
+    try {
+      if (playerRef.current?.seekTo) playerRef.current.seekTo(t);
+      else if (playerRef.current?.currentTime !== undefined) playerRef.current.currentTime = t;
+    } catch {}
   }
   function fmtTime(s) {
     if (!s || isNaN(s)) return '0:00';
@@ -84,10 +76,17 @@ export default function PlayerBar() {
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onEnded={onTrackEnd}
+          onTimeUpdate={(e) => {
+            setProgress(e.target.currentTime || 0);
+          }}
           onLoadedMetadata={(e) => {
-             setDuration(e.target.duration || 0);
-             setPlayerReady(true);
-             e.target.volume = isMuted ? 0 : volume;
+            setDuration(e.target.duration || 0);
+            setPlayerReady(true);
+            e.target.volume = isMuted ? 0 : volume;
+            if (isPlaying) e.target.play().catch(() => {});
+          }}
+          onError={(e) => {
+            console.error('Audio error:', e.target.error?.message);
           }}
         />
       )}
@@ -95,7 +94,8 @@ export default function PlayerBar() {
       {/* ── Spotify-style Mini Player ── */}
       <div className="player-bar-wrap" style={{background:'var(--bg-secondary)', borderTop:'1px solid var(--border)'}}>
         {/* Progress line */}
-        <div onClick={seek} style={{height:2, background:'rgba(255,255,255,0.1)', cursor:'pointer', position:'relative'}}
+        <div onClick={seek} onTouchEnd={seek}
+          style={{height:2, background:'rgba(255,255,255,0.1)', cursor:'pointer', position:'relative', touchAction:'none'}}
           onMouseOver={e => e.currentTarget.style.height='4px'}
           onMouseOut={e => e.currentTarget.style.height='2px'}>
           <div style={{width:`${pct}%`, height:'100%', background:'var(--accent)', transition:'width 0.1s linear'}} />
@@ -181,7 +181,8 @@ export default function PlayerBar() {
 
           {/* Progress */}
           <div style={{padding:'0 24px 8px'}}>
-            <div onClick={seek} style={{height:4, background:'rgba(255,255,255,0.2)', borderRadius:99, cursor:'pointer', marginBottom:6, position:'relative'}}>
+            <div onClick={seek} onTouchEnd={seek}
+              style={{height:4, background:'rgba(255,255,255,0.2)', borderRadius:99, cursor:'pointer', marginBottom:6, position:'relative', touchAction:'none'}}>
               <div style={{width:`${pct}%`, height:'100%', background:'#fff', borderRadius:99, transition:'width 0.1s linear'}} />
               <div style={{position:'absolute', top:'50%', left:`${pct}%`, transform:'translate(-50%,-50%)', width:14, height:14, borderRadius:'50%', background:'#fff'}} />
             </div>
