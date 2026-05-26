@@ -1,5 +1,5 @@
 // NOVA Music Service Worker - Background Play v3
-const CACHE_NAME = 'nova-v3';
+const CACHE_NAME = 'nova-v4';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -26,6 +26,7 @@ self.addEventListener('fetch', e => {
 
   // Don't cache API calls or YouTube
   if (url.hostname.includes('railway.app') ||
+      url.hostname.includes('onrender.com') ||
       url.hostname.includes('youtube.com') ||
       url.hostname.includes('ytimg.com') ||
       url.pathname.startsWith('/api/') ||
