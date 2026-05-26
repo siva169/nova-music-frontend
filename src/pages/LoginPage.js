@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { AUTH_URL } from '../AppContext';
 
 export default function LoginPage() {
   const canvasRef = useRef(null);
@@ -68,7 +69,7 @@ export default function LoginPage() {
           ))}
         </div>
 
-        <a href="https://nova-music-backend-production.up.railway.app/auth/google" style={{ display:'inline-flex', alignItems:'center', gap:12, background:'rgba(255,255,255,0.96)', color:'#000', padding:'15px 36px', borderRadius:99, fontSize:15, fontWeight:700, textDecoration:'none', boxShadow:'0 0 40px rgba(0,212,255,0.35)', letterSpacing:0.3, transition:'all 0.25s' }}
+        <a href={AUTH_URL} style={{ display:'inline-flex', alignItems:'center', gap:12, background:'rgba(255,255,255,0.96)', color:'#000', padding:'15px 36px', borderRadius:99, fontSize:15, fontWeight:700, textDecoration:'none', boxShadow:'0 0 40px rgba(0,212,255,0.35)', letterSpacing:0.3, transition:'all 0.25s' }}
           onMouseOver={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.boxShadow='0 8px 50px rgba(0,212,255,0.6)';}}
           onMouseOut={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 0 40px rgba(0,212,255,0.35)';}}>
           <svg width="20" height="20" viewBox="0 0 24 24">

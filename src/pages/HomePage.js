@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp, API } from '../AppContext';
 
@@ -47,73 +47,110 @@ export default function HomePage() {
   const { user } = useApp();
   const navigate = useNavigate();
   const [trending, setTrending] = useState([]);
+  const [romance, setRomance] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [greeting, setGreeting] = useState('');
+  const [query, setQuery] = useState('');
+  const [activeTag, setActiveTag] = useState('Podcasts');
+
+  const tags = ['Podcasts', 'Workout', 'Relax', 'Feel good', 'Romance', 'Nostalgia'];
+  const quickActions = [
+    { label: 'History', icon: '◷', path: '/songs' },
+    { label: 'Stats', icon: '↗', path: '/library' },
+    { label: 'Local Scanner', icon: '◫', path: '/folders' },
+    { label: 'Account', icon: '◉', path: '/settings' },
+  ];
 
   useEffect(() => {
-    const h = new Date().getHours();
-    setGreeting(h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
-    API.get('/api/trending').then(r => setTrending(r.data.items || [])).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([
+      API.get('/api/trending').then(r => r.data.items || []).catch(() => []),
+      API.get('/api/search', { params: { q: 'romance hits' } }).then(r => r.data.items || []).catch(() => [])
+    ]).then(([tr, ro]) => {
+      setTrending(tr);
+      setRomance(ro.slice(0, 20));
+    }).finally(() => setLoading(false));
   }, []);
 
-  const firstName = user?.name?.split(' ')[0] || 'there';
+  const filteredTrending = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return trending;
+    return trending.filter(t => `${t.title} ${t.channel}`.toLowerCase().includes(q));
+  }, [query, trending]);
 
   return (
     <div style={{animation:'fadeIn 0.4s ease'}}>
-      {/* Header */}
-      <div style={{marginBottom:20}}>
-        <h1 style={{fontSize:22, fontWeight:800, marginBottom:2}}>
-          {greeting}, {firstName} 👋
-        </h1>
-        <p style={{color:'var(--text-muted)', fontSize:13}}>What do you want to listen to today?</p>
+      <div style={{display:'flex', gap:8, marginBottom:14}}>
+        <button
+          onClick={() => navigate(`/search?q=${encodeURIComponent(query || 'freia')}`)}
+          style={{
+            flex: 1, textAlign: 'left', borderRadius: 30, border: '1px solid var(--border)',
+            background: 'var(--bg-card)', color: 'var(--text-secondary)', padding: '12px 14px', fontSize: 14
+          }}
+        >
+          <span style={{fontWeight: 700, color: 'var(--text-primary)'}}>$</span>earch {query && `· ${query}`}
+        </button>
+        <button onClick={() => navigate('/settings')} style={{width:44, borderRadius:22, background:'var(--bg-card)', border:'1px solid var(--border)', fontSize:18}}>⚙</button>
       </div>
 
-      {/* Quick picks */}
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:28}}>
-        {[
-          {label:'🔥 Trending', q:'trending music 2025', color:'#e13300'},
-          {label:'💿 New Releases', q:'new music 2025', color:'#006450'},
-          {label:'🎸 Rock', q:'rock music', color:'#1e3264'},
-          {label:'🎹 Chill', q:'lofi chill music', color:'#8400e7'},
-          {label:'🎤 Hip-Hop', q:'hip hop 2025', color:'#e8115b'},
-          {label:'🎙 Podcasts', q:'popular podcasts', color:'#503750'},
-        ].map(({label, q, color}) => (
-          <button key={label} onClick={() => navigate(`/search?q=${encodeURIComponent(q)}`)}
-            style={{
-              background:`linear-gradient(135deg, ${color}dd, ${color}88)`,
-              borderRadius:8, padding:'14px 12px',
-              textAlign:'left', color:'white', fontWeight:700, fontSize:13,
-              border:'none', cursor:'pointer', transition:'filter 0.2s'
-            }}
-            onMouseOver={e => e.currentTarget.style.filter='brightness(1.2)'}
-            onMouseOut={e => e.currentTarget.style.filter='brightness(1)'}
-          >{label}</button>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:14}}>
+        {quickActions.map(a => (
+          <button key={a.label} onClick={() => navigate(a.path)} style={{background:'transparent', border:'none'}}>
+            <div style={{width:44, height:44, borderRadius:22, margin:'0 auto 6px', background:'var(--bg-card)', border:'1px solid var(--border)', display:'grid', placeItems:'center', fontSize:18}}>{a.icon}</div>
+            <div style={{fontSize:11, color:'var(--text-secondary)'}}>{a.label}</div>
+          </button>
         ))}
       </div>
 
-      {/* Trending section */}
-      <div>
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12}}>
-          <h2 style={{fontSize:18, fontWeight:700}}>🔥 Trending</h2>
-          <span style={{fontSize:11, color:'var(--text-muted)'}}>Updated daily</span>
-        </div>
-        <div style={{
-          display:'grid',
-          gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))',
-          gap:12
-        }}>
-          {loading
-            ? Array(12).fill(0).map((_,i) => (
-                <div key={i}>
-                  <div className="skeleton" style={{paddingBottom:'100%', borderRadius:8, marginBottom:6}} />
-                  <div className="skeleton" style={{height:12, borderRadius:4, marginBottom:4}} />
-                  <div className="skeleton" style={{height:10, width:'70%', borderRadius:4}} />
-                </div>
-              ))
-            : trending.map((t,i) => <TrackCard key={t.id} track={t} queue={trending} index={i} />)
-          }
-        </div>
+      <div style={{display:'flex', gap:8, overflowX:'auto', marginBottom:18, paddingBottom:2}}>
+        {tags.map(tag => (
+          <button key={tag} onClick={() => setActiveTag(tag)} style={{
+            borderRadius:99, padding:'6px 14px', border:'1px solid var(--border)',
+            color: activeTag === tag ? 'var(--text-primary)' : 'var(--text-secondary)',
+            background: activeTag === tag ? 'var(--bg-card)' : 'transparent', whiteSpace:'nowrap'
+          }}>{tag}</button>
+        ))}
       </div>
+
+      <Section title="THROWBACK TO THE OG ERAS OF MUSIC" subtitle="Brb, Being Nostalgic!">
+        <Carousel tracks={filteredTrending} loading={loading} />
+      </Section>
+
+      <Section title="BACKGROUND SCORE TO YOUR LOVE STORY" subtitle="Romance Right Now">
+        <Carousel tracks={romance} loading={loading} />
+      </Section>
+    </div>
+  );
+}
+
+function Section({ title, subtitle, children }) {
+  return (
+    <div style={{marginBottom:22}}>
+      <div style={{fontSize:11, color:'var(--text-muted)', letterSpacing:0.5, marginBottom:2}}>{title}</div>
+      <div style={{fontSize:30, lineHeight:1.05, fontFamily:"'Bebas Neue',sans-serif", color:'#e5ab65', marginBottom:10}}>{subtitle}</div>
+      {children}
+    </div>
+  );
+}
+
+function Carousel({ tracks, loading }) {
+  return (
+    <div style={{display:'flex', gap:10, overflowX:'auto', paddingBottom:4}}>
+      {loading
+        ? Array(6).fill(0).map((_, i) => (
+          <div key={i} style={{minWidth:130}}>
+            <div className="skeleton" style={{height:130, borderRadius:10, marginBottom:6}} />
+            <div className="skeleton" style={{height:12, borderRadius:4, marginBottom:4}} />
+            <div className="skeleton" style={{height:10, width:'70%', borderRadius:4}} />
+          </div>
+        ))
+        : tracks.map((t, i) => (
+          <div key={t.id + i} style={{minWidth:130}}>
+            <TrackCard track={t} queue={tracks} index={i} />
+          </div>
+        ))
+      }
+      {!loading && tracks.length === 0 && (
+        <div style={{fontSize:12, color:'var(--text-muted)', padding:'12px 0'}}>No tracks yet</div>
+      )}
     </div>
   );
 }

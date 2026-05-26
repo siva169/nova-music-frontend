@@ -2,7 +2,9 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import axios from 'axios';
 
 const AppContext = createContext(null);
-const API = axios.create({ baseURL: 'https://nova-music-backend-production.up.railway.app', withCredentials: true });
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://nova-music-backend.onrender.com';
+const AUTH_URL = process.env.REACT_APP_AUTH_URL || `${API_BASE_URL}/auth/google`;
+const API = axios.create({ baseURL: API_BASE_URL, withCredentials: true });
 
 export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -42,7 +44,7 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setAuthLoading(false), 5000);
+    const timeout = setTimeout(() => setAuthLoading(false), 2000);
     API.get('/auth/me').then(r => {
       setUser(r.data.user);
       if (r.data.user) { setTheme(r.data.user.theme || 'dark'); setAccent(r.data.user.accent || 'cyan'); }
@@ -166,7 +168,7 @@ export function AppProvider({ children }) {
     navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
     navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
     navigator.mediaSession.setActionHandler('seekto', (d) => {
-      if (d.seekTime && playerRef.current) { try { playerRef.current.seekTo(d.seekTime, true); } catch {} setProgress(d.seekTime); }
+      if (typeof d.seekTime === 'number' && playerRef.current) { try { playerRef.current.seekTo(d.seekTime, true); } catch {} setProgress(d.seekTime); }
     });
   }, [currentTrack, nextTrack, prevTrack]);
 
@@ -241,4 +243,4 @@ export function AppProvider({ children }) {
 }
 
 export const useApp = () => useContext(AppContext);
-export { API };
+export { API, API_BASE_URL, AUTH_URL };

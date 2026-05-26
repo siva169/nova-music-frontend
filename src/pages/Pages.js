@@ -1,6 +1,37 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useApp, API } from '../AppContext';
+import { useApp, API, AUTH_URL } from '../AppContext';
+
+export function SongsPage() {
+  const { likedTracks, playlists } = useApp();
+  const songs = [...likedTracks, ...playlists.flatMap(p => p.tracks || [])]
+    .filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i);
+
+  return (
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+      <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 14 }}>All Songs</h1>
+      <div style={{ color: 'var(--text-muted)', marginBottom: 14, fontSize: 13 }}>Your flat track list for quick access.</div>
+      {songs.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No songs yet. Start from Home or Search.</div>
+      ) : songs.map((t, i) => <TrackCompact key={t.id} track={t} queue={songs} index={i} />)}
+    </div>
+  );
+}
+
+export function FoldersPage() {
+  return (
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+      <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 14 }}>Folders</h1>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+        <div style={{ marginBottom: 8, fontWeight: 600 }}>Local Scanner</div>
+        <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 12 }}>
+          Local filesystem playback requires device file permissions. Use this section for power-user local browsing.
+        </div>
+        <button className="btn-ghost">Scan device folders</button>
+      </div>
+    </div>
+  );
+}
 
 // ── Library Page ──────────────────────────────────────────────────────────────
 export function LibraryPage() {
@@ -250,8 +281,15 @@ export function SettingsPage() {
     <div style={{ animation: 'fadeIn 0.3s ease', maxWidth: 600 }}>
       <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 24 }}>Settings</h1>
 
+      {!user && (
+        <Section title="Account">
+          <div style={{ color: 'var(--text-muted)', marginBottom: 12 }}>Sign in to sync liked songs and playlists.</div>
+          <a href={AUTH_URL} className="btn-accent" style={{ display: 'inline-block' }}>Sign in with Google</a>
+        </Section>
+      )}
+
       {/* Profile */}
-      <Section title="Profile">
+      {!!user && <Section title="Profile">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <img src={user?.picture} alt={user?.name} style={{ width: 60, height: 60, borderRadius: '50%', border: '3px solid var(--accent)' }} />
           <div>
@@ -259,7 +297,7 @@ export function SettingsPage() {
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{user?.email}</div>
           </div>
         </div>
-      </Section>
+      </Section>}
 
       {/* Theme */}
       <Section title="Theme Mode">
@@ -285,12 +323,12 @@ export function SettingsPage() {
       <button onClick={apply} className="btn-accent" style={{ marginBottom: 24 }}>Save Changes</button>
 
       {/* Logout */}
-      <Section title="Account">
+      {!!user && <Section title="Account">
         <button onClick={logout} style={{ padding: '10px 24px', borderRadius: 99, background: 'rgba(255,45,85,0.1)', border: '1px solid #ff2d5544', color: '#ff2d55', fontWeight: 600, fontSize: 13, transition: 'var(--transition)' }}
           onMouseOver={e => e.currentTarget.style.background = 'rgba(255,45,85,0.2)'}
           onMouseOut={e => e.currentTarget.style.background = 'rgba(255,45,85,0.1)'}
         >Sign Out</button>
-      </Section>
+      </Section>}
     </div>
   );
 }
