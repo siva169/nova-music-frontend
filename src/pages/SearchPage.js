@@ -15,11 +15,17 @@ const CATEGORIES = [
   { label: '💪 Workout', q: 'workout gym music', color: '#e8115b' },
 ];
 
+const SOURCE_BADGE = {
+  youtube: { label: 'YT', bg: '#ff0000', color: '#fff' },
+  jiosaavn: { label: 'JS', bg: '#2bc5b4', color: '#fff' },
+};
+
 function TrackRow({ track, queue, index }) {
   const { playTrack, currentTrack, isPlaying, toggleLike, likedTracks, playlists, addToPlaylist, toast } = useApp();
   const isCurrentTrack = currentTrack?.id === track.id;
   const isLiked = likedTracks.some(t => t.id === track.id);
   const [showMenu, setShowMenu] = useState(false);
+  const badge = SOURCE_BADGE[track.source];
   const actionItems = [
     'Start radio', 'Add to queue', 'Add to playlist',
     'Download', 'Add to library', 'View artist',
@@ -45,6 +51,9 @@ function TrackRow({ track, queue, index }) {
           <div style={{position:'absolute', inset:0, background:'rgba(0,0,0,0.5)', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center'}}>
             <div className="eq-bars" style={{height:14}}><span/><span/><span/></div>
           </div>
+        )}
+        {badge && (
+          <div style={{position:'absolute', bottom:2, left:2, background:badge.bg, color:badge.color, fontSize:8, fontWeight:700, padding:'1px 4px', borderRadius:3, lineHeight:'12px'}}>{badge.label}</div>
         )}
       </div>
 
@@ -116,6 +125,7 @@ export default function SearchPage() {
 
   const [query, setQuery] = useState(initQ);
   const [searchType, setSearchType] = useState('all');
+  const [musicSource, setMusicSource] = useState('all');
   const [results, setResults] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -134,7 +144,7 @@ export default function SearchPage() {
     if (!query.trim()) { setResults([]); setSearched(false); return; }
     debounceRef.current = setTimeout(() => doSearch(query, searchType, null, true), 300);
     return () => clearTimeout(debounceRef.current);
-  }, [query, searchType]);
+  }, [query, searchType, musicSource]);
 
   async function doSearch(q, type, pageToken=null, reset=false) {
     if (!q.trim()) return;
@@ -143,7 +153,8 @@ export default function SearchPage() {
     try {
       const endpoint = type==='channel' ? '/api/search/channel' : '/api/search';
       const paramKey = type==='channel' ? 'channelName' : 'q';
-      const res = await API.get(endpoint, {params:{[paramKey]:q, type, pageToken}});
+      const sourceParam = musicSource === 'all' ? undefined : musicSource;
+      const res = await API.get(endpoint, {params:{[paramKey]:q, type, pageToken, source: sourceParam}});
       const items = res.data.items || [];
       setResults(prev => reset ? items : [...prev, ...items]);
       if (reset) {
@@ -215,6 +226,23 @@ export default function SearchPage() {
               color: searchType===id ? '#000' : 'var(--text-primary)',
               border:'none', cursor:'pointer', flexShrink:0, transition:'all 0.2s'
             }}>{label}</button>
+          ))}
+        </div>
+
+        {/* Source toggle */}
+        <div style={{display:'flex', gap:6, marginTop:8, flexWrap:'nowrap', overflowX:'auto', paddingBottom:2}}>
+          {[
+            {id:'all', label:'All Sources', icon:'🌐'},
+            {id:'jiosaavn', label:'JioSaavn', icon:'🎵'},
+            {id:'youtube', label:'YouTube', icon:'▶'}
+          ].map(({id, label, icon}) => (
+            <button key={id} onClick={() => setMusicSource(id)} style={{
+              padding:'5px 12px', borderRadius:99, fontSize:12, fontWeight:500,
+              background: musicSource===id ? (id==='youtube' ? '#ff0000' : id==='jiosaavn' ? '#2bc5b4' : 'var(--accent)') : 'rgba(255,255,255,0.06)',
+              color: musicSource===id ? '#fff' : 'var(--text-secondary)',
+              border: musicSource===id ? 'none' : '1px solid rgba(255,255,255,0.1)',
+              cursor:'pointer', flexShrink:0, transition:'all 0.2s'
+            }}>{icon} {label}</button>
           ))}
         </div>
       </div>
