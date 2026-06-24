@@ -87,11 +87,18 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     async function handleVisibility() {
-      if (!document.hidden && isPlaying && 'wakeLock' in navigator) {
-        try {
-          if (!wakeLockRef.current || wakeLockRef.current.released)
-            wakeLockRef.current = await navigator.wakeLock.request('screen');
-        } catch {}
+      if (!document.hidden) {
+        // Coming back to foreground — re-acquire wake lock and re-set media session state
+        if (isPlaying && 'wakeLock' in navigator) {
+          try {
+            if (!wakeLockRef.current || wakeLockRef.current.released)
+              wakeLockRef.current = await navigator.wakeLock.request('screen');
+          } catch {}
+        }
+        // Tell browser we're still playing (important for Android notification)
+        if (isPlaying && 'mediaSession' in navigator) {
+          navigator.mediaSession.playbackState = 'playing';
+        }
       }
     }
     document.addEventListener('visibilitychange', handleVisibility);

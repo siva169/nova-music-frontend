@@ -37,6 +37,8 @@ export default function PlayerBar() {
 
   useEffect(() => { if (is8D) start8D(); else stop8D(); }, [is8D]);
 
+  const wasPlayingRef = useRef(false);
+
   function handleAudioRef(el) {
     if (!el) return;
     el.playVideo = () => el.play().catch(() => {});
@@ -44,6 +46,25 @@ export default function PlayerBar() {
     el.seekTo = (s) => { el.currentTime = s; };
     el.setVolume = (v) => { el.volume = Math.max(0, Math.min(1, v)); };
     playerRef.current = el;
+
+    // Auto-resume when page comes back into focus (Android home screen → app)
+    const handleVisibility = () => {
+      if (!document.hidden && wasPlayingRef.current && el.paused) {
+        el.play().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // Resume after audio interruptions (phone calls etc.)
+    el.addEventListener('pause', () => {
+      if (document.hidden) {
+        // Browser paused us in background - remember we were playing
+        wasPlayingRef.current = true;
+      }
+    });
+    el.addEventListener('play', () => {
+      wasPlayingRef.current = true;
+    });
   }
   function seek(e) {
     if (!duration) return;
@@ -66,7 +87,7 @@ export default function PlayerBar() {
 
   return (
     <>
-      {/* Native Audio Layer */}
+      {/* Native Audio Layer - kept in layout but invisible so Android registers media session */}
       {currentTrack && currentTrack.streamUrl && (
         <audio 
           key={`${currentTrack.id}-${ytKey}`}
@@ -75,8 +96,18 @@ export default function PlayerBar() {
           autoPlay={isPlaying}
           playsInline
           preload="metadata"
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
+          onPlay={() => {
+            wasPlayingRef.current = true;
+            setIsPlaying(true);
+          }}
+          onPause={() => {
+            // Don't update state if browser paused us in background
+            // (Android kills background audio temporarily)
+            if (!document.hidden) {
+              wasPlayingRef.current = false;
+              setIsPlaying(false);
+            }
+          }}
           onEnded={onTrackEnd}
           onCanPlay={(e) => {
             if (isPlaying) e.target.play().catch(() => {});
@@ -93,7 +124,15 @@ export default function PlayerBar() {
           onError={(e) => {
             console.error('Audio error:', e.target.error?.message);
           }}
-          style={{ display: 'none' }}
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            width: '1px',
+            height: '1px',
+            opacity: 0,
+            pointerEvents: 'none',
+          }}
         />
       )}
 
