@@ -73,7 +73,6 @@ export default function PlayerBar() {
           ref={handleAudioRef}
           src={currentTrack.streamUrl}
           autoPlay={isPlaying}
-          crossOrigin="anonymous"
           playsInline
           preload="metadata"
           onPlay={() => setIsPlaying(true)}
