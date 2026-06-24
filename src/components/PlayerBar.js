@@ -19,6 +19,7 @@ export default function PlayerBar() {
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [showAddTo, setShowAddTo] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
   const isLiked = currentTrack ? likedTracks.some(t => t.id === currentTrack.id) : false;
 
   useEffect(() => {
@@ -89,39 +90,35 @@ export default function PlayerBar() {
     <>
       {/* Native Audio Layer - kept in layout but invisible so Android registers media session */}
       {currentTrack && currentTrack.streamUrl && (
-        <audio 
+        <audio
           key={`${currentTrack.id}-${ytKey}`}
           ref={handleAudioRef}
           src={currentTrack.streamUrl}
-          autoPlay={isPlaying}
+          preload="auto"
           playsInline
-          preload="metadata"
           onPlay={() => {
             wasPlayingRef.current = true;
+            setIsBuffering(false);
             setIsPlaying(true);
           }}
           onPause={() => {
-            // Don't update state if browser paused us in background
-            // (Android kills background audio temporarily)
             if (!document.hidden) {
               wasPlayingRef.current = false;
               setIsPlaying(false);
             }
           }}
+          onWaiting={() => setIsBuffering(true)}
+          onPlaying={() => setIsBuffering(false)}
+          onCanPlayThrough={() => setIsBuffering(false)}
           onEnded={onTrackEnd}
-          onCanPlay={(e) => {
-            if (isPlaying) e.target.play().catch(() => {});
-          }}
-          onTimeUpdate={(e) => {
-            setProgress(e.target.currentTime || 0);
-          }}
+          onTimeUpdate={(e) => setProgress(e.target.currentTime || 0)}
           onLoadedMetadata={(e) => {
             setDuration(e.target.duration || 0);
             setPlayerReady(true);
             e.target.volume = isMuted ? 0 : volume;
-            if (isPlaying) e.target.play().catch(() => {});
           }}
           onError={(e) => {
+            setIsBuffering(false);
             console.error('Audio error:', e.target.error?.message);
           }}
           style={{
@@ -173,11 +170,12 @@ export default function PlayerBar() {
             <button onClick={prevTrack} style={{color:'rgba(255,255,255,0.7)', fontSize:22, padding:'6px', background:'none', border:'none', cursor:'pointer'}}>⏮</button>
             <button onClick={() => setIsPlaying(p => !p)} style={{
               width:40, height:40, borderRadius:'50%',
-              background:'white', color:'#000',
+              background: isBuffering ? 'var(--accent)' : 'white', color: isBuffering ? 'white' : '#000',
               display:'flex', alignItems:'center', justifyContent:'center',
               fontSize:16, border:'none', cursor:'pointer',
-              boxShadow:'0 4px 15px rgba(0,0,0,0.3)'
-            }}>{isPlaying ? '⏸' : '▶'}</button>
+              boxShadow:'0 4px 15px rgba(0,0,0,0.3)',
+              transition: 'all 0.2s',
+            }}>{isBuffering ? '⟳' : isPlaying ? '⏸' : '▶'}</button>
             <button onClick={nextTrack} style={{color:'rgba(255,255,255,0.7)', fontSize:22, padding:'6px', background:'none', border:'none', cursor:'pointer'}}>⏭</button>
           </div>
         </div>
