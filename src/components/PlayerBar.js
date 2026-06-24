@@ -73,9 +73,15 @@ export default function PlayerBar() {
           ref={handleAudioRef}
           src={currentTrack.streamUrl}
           autoPlay={isPlaying}
+          crossOrigin="anonymous"
+          playsInline
+          preload="metadata"
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onEnded={onTrackEnd}
+          onCanPlay={(e) => {
+            if (isPlaying) e.target.play().catch(() => {});
+          }}
           onTimeUpdate={(e) => {
             setProgress(e.target.currentTime || 0);
           }}
@@ -88,6 +94,7 @@ export default function PlayerBar() {
           onError={(e) => {
             console.error('Audio error:', e.target.error?.message);
           }}
+          style={{ display: 'none' }}
         />
       )}
 

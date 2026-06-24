@@ -154,23 +154,44 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!currentTrack || !('mediaSession' in navigator)) return;
+
+    const thumb = currentTrack.thumbnail || '';
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: currentTrack.title,
-      artist: currentTrack.channel,
-      album: 'NOVA — Your Universe of Sound',
+      title:  currentTrack.title   || 'Unknown',
+      artist: currentTrack.channel || 'Unknown',
+      album:  'NOVA Music',
       artwork: [
-        { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
-        { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
+        { src: thumb, sizes: '96x96',   type: 'image/jpeg' },
+        { src: thumb, sizes: '128x128', type: 'image/jpeg' },
+        { src: thumb, sizes: '192x192', type: 'image/jpeg' },
+        { src: thumb, sizes: '256x256', type: 'image/jpeg' },
+        { src: thumb, sizes: '384x384', type: 'image/jpeg' },
+        { src: thumb, sizes: '512x512', type: 'image/jpeg' },
       ]
     });
-    navigator.mediaSession.setActionHandler('play', () => { setIsPlaying(true); try { playerRef.current?.playVideo?.(); } catch {} });
-    navigator.mediaSession.setActionHandler('pause', () => { setIsPlaying(false); try { playerRef.current?.pauseVideo?.(); } catch {} });
-    navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
-    navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
-    navigator.mediaSession.setActionHandler('seekto', (d) => {
-      if (typeof d.seekTime === 'number' && playerRef.current) { try { playerRef.current.seekTo(d.seekTime, true); } catch {} setProgress(d.seekTime); }
-    });
-  }, [currentTrack, nextTrack, prevTrack]);
+
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
+    const handlers = {
+      play:          () => { setIsPlaying(true);  try { playerRef.current?.play?.(); } catch {} },
+      pause:         () => { setIsPlaying(false); try { playerRef.current?.pause?.(); } catch {} },
+      stop:          () => { setIsPlaying(false); },
+      previoustrack: prevTrack,
+      nexttrack:     nextTrack,
+      seekbackward:  (d) => { const skip = d.seekOffset ?? 10; setProgress(p => Math.max(0, p - skip)); },
+      seekforward:   (d) => { const skip = d.seekOffset ?? 10; setProgress(p => p + skip); },
+      seekto:        (d) => {
+        if (typeof d.seekTime === 'number') {
+          try { playerRef.current?.seekTo?.(d.seekTime, true); } catch {}
+          setProgress(d.seekTime);
+        }
+      },
+    };
+
+    for (const [action, handler] of Object.entries(handlers)) {
+      try { navigator.mediaSession.setActionHandler(action, handler); } catch {}
+    }
+  }, [currentTrack, isPlaying, nextTrack, prevTrack]);
 
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
