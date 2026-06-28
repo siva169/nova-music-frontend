@@ -4,10 +4,11 @@ import { useApp } from '../AppContext';
 import { NovaLogoSidebar } from './NovaLogo';
 
 const NAV = [
-  { path: '/home', icon: '⌂', label: 'Home' },
-  { path: '/search', icon: '⌕', label: 'Search' },
+  { path: '/home',    icon: '⌂', label: 'Home' },
+  { path: '/search',  icon: '⌕', label: 'Search' },
+  { path: '/youtube', icon: '▶', label: 'YouTube' },
   { path: '/library', icon: '⊞', label: 'Library' },
-  { path: '/liked', icon: '♥', label: 'Liked Songs' },
+  { path: '/liked',   icon: '♥', label: 'Liked Songs' },
 ];
 
 export default function Sidebar() {

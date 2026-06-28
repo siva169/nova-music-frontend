@@ -25,11 +25,20 @@ function fmtDuration(secs) {
 }
 
 // ── Video Card ────────────────────────────────────────────────────────────────
-function VideoCard({ track, queue, index, onAddToPlaylist }) {
+function VideoCard({ track, queue, index }) {
   const { playTrack, currentTrack, isPlaying, toggleLike, likedTracks, playlists, addToPlaylist } = useApp();
   const isActive = currentTrack?.id === track.id;
   const isLiked  = likedTracks.some(t => t.id === track.id);
   const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMenu]);
 
   return (
     <div style={{
@@ -90,7 +99,7 @@ function VideoCard({ track, queue, index, onAddToPlaylist }) {
           </div>
         </div>
         {/* Action buttons */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0, position: 'relative' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0, position: 'relative' }} ref={menuRef}>
           <button onClick={e => { e.stopPropagation(); toggleLike(track); }} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: isLiked ? '#ff2d55' : 'rgba(255,255,255,0.4)', fontSize: 14, padding: 2,
