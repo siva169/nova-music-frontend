@@ -13,6 +13,7 @@ import { NovaLogoFull } from './components/NovaLogo';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
+import YoutubePage from './pages/YoutubePage';
 import { LibraryPage, LikedPage, PlaylistPage, SharedPage, SettingsPage, SongsPage, FoldersPage } from './pages/Pages';
 
 function LoadingScreen() {
@@ -53,6 +54,7 @@ function AppShell() {
           <Route path="/" element={<Navigate to="/home" />} />
           <Route path="/home" element={<HomePage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/youtube" element={<YoutubePage />} />
           <Route path="/songs" element={<SongsPage />} />
           <Route path="/folders" element={<FoldersPage />} />
           <Route path="/library" element={<LibraryPage />} />

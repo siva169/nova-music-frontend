@@ -14,7 +14,7 @@ function TrackCard({ track, queue, index }) {
       border: isCurrentTrack ? '1px solid var(--border-accent)' : '1px solid transparent'
     }}
       onMouseOver={e => { e.currentTarget.style.background='var(--bg-elevated)'; }}
-      onMouseOut={e => { e.currentTarget.style.background='var(--bg-card)'; }}
+      onMouseOut={e  => { e.currentTarget.style.background='var(--bg-card)'; }}
     >
       <div style={{position:'relative', paddingBottom:'100%', overflow:'hidden'}}>
         <img src={track.thumbnail} alt="" style={{position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover'}} />
@@ -30,6 +30,13 @@ function TrackCard({ track, queue, index }) {
           color:isLiked?'#ff2d55':'rgba(255,255,255,0.7)', fontSize:13,
           border:'none', cursor:'pointer'
         }}>♥</button>
+        {track.source === 'youtube' && (
+          <span style={{
+            position:'absolute', top:6, left:6,
+            background:'#ff0000', color:'#fff',
+            fontSize:8, fontWeight:800, padding:'2px 5px', borderRadius:3,
+          }}>▶ YT</span>
+        )}
       </div>
       <div style={{padding:'8px 10px 10px'}}>
         <div style={{fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:isCurrentTrack?'var(--accent)':'var(--text-primary)', marginBottom:2}}>
@@ -46,27 +53,30 @@ function TrackCard({ track, queue, index }) {
 export default function HomePage() {
   const { user } = useApp();
   const navigate = useNavigate();
-  const [trending, setTrending] = useState([]);
-  const [romance, setRomance] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState('');
+  const [trending, setTrending]   = useState([]);
+  const [romance, setRomance]     = useState([]);
+  const [ytPodcasts, setYtPodcasts] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [query, setQuery]         = useState('');
   const [activeTag, setActiveTag] = useState('Podcasts');
 
   const tags = ['Podcasts', 'Workout', 'Relax', 'Feel good', 'Romance', 'Nostalgia'];
   const quickActions = [
+    { label: 'YouTube', icon: '▶', path: '/youtube' },
     { label: 'History', icon: '◷', path: '/songs' },
-    { label: 'Stats', icon: '↗', path: '/library' },
-    { label: 'Local Scanner', icon: '◫', path: '/folders' },
+    { label: 'Library', icon: '◫', path: '/library' },
     { label: 'Account', icon: '◉', path: '/settings' },
   ];
 
   useEffect(() => {
     Promise.all([
       API.get('/api/trending').then(r => r.data.items || []).catch(() => []),
-      API.get('/api/search', { params: { q: 'romance hits' } }).then(r => r.data.items || []).catch(() => [])
-    ]).then(([tr, ro]) => {
+      API.get('/api/search', { params: { q: 'romance hits' } }).then(r => r.data.items || []).catch(() => []),
+      API.get('/api/youtube/category/podcasts').then(r => r.data.items || []).catch(() => []),
+    ]).then(([tr, ro, yt]) => {
       setTrending(tr);
       setRomance(ro.slice(0, 20));
+      setYtPodcasts(yt.slice(0, 10));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -113,6 +123,23 @@ export default function HomePage() {
       <Section title="THROWBACK TO THE OG ERAS OF MUSIC" subtitle="Brb, Being Nostalgic!">
         <Carousel tracks={filteredTrending} loading={loading} />
       </Section>
+
+      {/* YouTube section */}
+      <div style={{marginBottom:22}}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
+          <div>
+            <div style={{fontSize:11, color:'var(--text-muted)', letterSpacing:0.5, marginBottom:2}}>🎙️ YOUTUBE PODCASTS & MORE</div>
+            <div style={{fontSize:30, lineHeight:1.05, fontFamily:"'Bebas Neue',sans-serif", color:'#ff4444'}}>Top Picks From YouTube</div>
+          </div>
+          <button onClick={() => navigate('/youtube')} style={{
+            background:'linear-gradient(135deg,#ff0000,#c9000f)',
+            color:'#fff', border:'none', borderRadius:20,
+            padding:'8px 14px', fontSize:11, fontWeight:700, cursor:'pointer',
+            whiteSpace:'nowrap',
+          }}>See All ▶</button>
+        </div>
+        <Carousel tracks={ytPodcasts} loading={loading} />
+      </div>
 
       <Section title="BACKGROUND SCORE TO YOUR LOVE STORY" subtitle="Romance Right Now">
         <Carousel tracks={romance} loading={loading} />
